@@ -1,12 +1,20 @@
+import type { AbaNav } from '../lib/dominio'
+import type { LucideIcon } from 'lucide-react'
 import { CalendarDays, Settings, Users } from 'lucide-react'
 
-const ITENS = [
+interface ItemNav {
+  id: AbaNav
+  rotulo: string
+  Icone: LucideIcon
+}
+
+const ITENS: ItemNav[] = [
   { id: 'designacao', rotulo: 'Designação', Icone: CalendarDays },
   { id: 'dirigentes', rotulo: 'Dirigentes', Icone: Users },
   { id: 'config', rotulo: 'Configurações', Icone: Settings },
 ]
 
-export default function BottomNav({ aba, aoMudar }) {
+export default function BottomNav({ aba, aoMudar }: { aba: AbaNav; aoMudar: (aba: AbaNav) => void }) {
   return (
     <nav
       aria-label="Navegação principal"

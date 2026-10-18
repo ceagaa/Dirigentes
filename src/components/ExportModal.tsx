@@ -1,3 +1,5 @@
+import type { RefObject } from 'react'
+import type { ConfigEscala, Dirigente, Ocorrencia } from '../lib/dominio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ClipboardCopy, FileDown, ImageDown, Link as LinkIcon, Loader2, Share2 } from 'lucide-react'
 import { linkDe, montarPayload } from '../lib/compartilhamento'
@@ -11,6 +13,20 @@ import {
 } from '../lib/export'
 import { Botao, Modal } from './ui'
 
+interface ExportModalProps {
+  aberto: boolean
+  aoFechar: () => void
+  noAlvo: RefObject<HTMLDivElement | null>
+  chave: string
+  ano: number
+  mes: string
+  config: ConfigEscala
+  ocorrencias: Ocorrencia[]
+  efetivas: Record<string, string>
+  dirigentes: Dirigente[]
+  aoAvisar: (mensagem: string) => void
+}
+
 export default function ExportModal({
   aberto,
   aoFechar,
@@ -23,8 +39,8 @@ export default function ExportModal({
   efetivas,
   dirigentes,
   aoAvisar,
-}) {
-  const canvasRef = useRef(null)
+}: ExportModalProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [previa, setPrevia] = useState('')
   const [ocupado, setOcupado] = useState('')
   const [erro, setErro] = useState('')
@@ -65,7 +81,11 @@ export default function ExportModal({
     }
   }, [aberto, noAlvo])
 
-  async function executar(rotulo, acao, sucesso) {
+  async function executar(
+    rotulo: string,
+    acao: (canvas: HTMLCanvasElement) => Promise<unknown>,
+    sucesso?: string | ((resultado: unknown) => string),
+  ) {
     if (!canvasRef.current || ocupado) return
     setOcupado(rotulo)
     setErro('')
@@ -74,9 +94,9 @@ export default function ExportModal({
       const aviso = typeof sucesso === 'function' ? sucesso(resultado) : sucesso
       if (aviso) aoAvisar(aviso)
     } catch (e) {
-      if (e?.name !== 'AbortError') {
+      if (e instanceof Error && e.name !== 'AbortError') {
         console.warn(e)
-        setErro(e?.message || 'A ação não foi concluída. Tente novamente.')
+        setErro(e.message || 'A ação não foi concluída. Tente novamente.')
       }
     } finally {
       setOcupado('')

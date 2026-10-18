@@ -1,3 +1,5 @@
+import type { RefObject } from 'react'
+import type { Campo, ConfigEscala, Dirigente, Ocorrencia, RegistroMes } from '../lib/dominio'
 import {
   CheckCircle2,
   ChevronLeft,
@@ -8,6 +10,28 @@ import {
 import { MESES } from '../lib/constants'
 import { Botao, Rotulo, Select } from './ui'
 import EscalaCard from './EscalaCard'
+
+interface TabelaEscalaProps {
+  ano: number
+  mes: number
+  config: ConfigEscala
+  aoMudarData: (ano: number, mes: number) => void
+  dirigentes: Dirigente[]
+  campos: Campo[]
+  ocorrencias: Ocorrencia[]
+  registro: RegistroMes
+  efetivas: Record<string, string>
+  manterManuais: boolean
+  aoAlterarManter: (valor: boolean) => void
+  aoGerar: () => void
+  aoAlterarDesignacao: (chave: string, idDirigente: string) => void
+  aoLimparManuais: () => void
+  aoConfigurar: () => void
+  aoCadastrar: () => void
+  cardRef: RefObject<HTMLDivElement | null>
+  aoConcluir: () => void
+  pronta: boolean
+}
 
 export default function TabelaEscala({
   ano,
@@ -29,7 +53,7 @@ export default function TabelaEscala({
   cardRef,
   aoConcluir,
   pronta,
-}) {
+}: TabelaEscalaProps) {
   const anos = Array.from({ length: 9 }, (_, i) => ano - 4 + i)
   const manuais = registro.manuais ?? {}
   const totalManuais = Object.keys(manuais).length

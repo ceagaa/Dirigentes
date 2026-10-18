@@ -1,18 +1,22 @@
+import type { ConfigEscala, Dirigente, Ocorrencia } from './dominio'
 import { CITACAO, nomeDiaCurto } from './constants'
 import { lerChaveMes, nomeMes } from './datas'
 
-async function carregarHtml2canvas() {
+async function carregarHtml2canvas(): Promise<typeof import('html2canvas').default> {
   const { default: html2canvas } = await import('html2canvas')
   return html2canvas
 }
 
-function nomeArquivo(chave) {
+/** Qualquer nó renderizável pelo html2canvas (div, section, canvas…). */
+export type AlvoCaptura = HTMLElement | HTMLCanvasElement
+
+function nomeArquivo(chave: string): string {
   const { ano, mes } = lerChaveMes(chave)
   return `designacao-${nomeMes(mes).toLowerCase()}-${ano}`
 }
 
 /** Renderiza o card da escala exatamente como está na tela. */
-export async function capturarNo(no) {
+export async function capturarNo(no: AlvoCaptura | null): Promise<HTMLCanvasElement> {
   if (!no) throw new Error('Card da escala não encontrado.')
 
   const html2canvas = await carregarHtml2canvas()
@@ -33,18 +37,21 @@ export async function capturarNo(no) {
   }
 }
 
-function paraArquivo(canvas) {
+function paraArquivo(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Falha ao gerar a imagem.'))), 'image/png')
   })
 }
 
-export async function baixarImagem(canvas, chave) {
+export async function baixarImagem(alvo: AlvoCaptura | null, chave: string): Promise<HTMLCanvasElement> {
+  const canvas = alvo instanceof HTMLCanvasElement ? alvo : await capturarNo(alvo)
   const blob = await paraArquivo(canvas)
   baixar(blob, `${nomeArquivo(chave)}.png`)
+  return canvas
 }
 
-export async function baixarPdf(canvas, chave) {
+export async function baixarPdf(alvo: AlvoCaptura | null, chave: string): Promise<HTMLCanvasElement> {
+  const canvas = alvo instanceof HTMLCanvasElement ? alvo : await capturarNo(alvo)
   const { jsPDF } = await import('jspdf')
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
   const larguraPag = pdf.internal.pageSize.getWidth()
@@ -71,13 +78,21 @@ export async function baixarPdf(canvas, chave) {
   return canvas
 }
 
-function tituloDaEscala(chave) {
+function tituloDaEscala(chave: string): string {
   const { ano, mes } = lerChaveMes(chave)
   return `Designação de ${nomeMes(mes)} de ${ano}`
 }
 
 /** Abre o menu nativo do sistema (WhatsApp, etc.). Sem suporte, copia o texto. */
-export async function compartilhar({ canvas, chave, texto }) {
+export async function compartilhar({
+  canvas,
+  chave,
+  texto,
+}: {
+  canvas: HTMLCanvasElement
+  chave: string
+  texto: string
+}): Promise<'arquivo' | 'texto' | 'copiado'> {
   const blob = await paraArquivo(canvas)
   const arquivo = new File([blob], `${nomeArquivo(chave)}.png`, { type: 'image/png' })
   const titulo = tituloDaEscala(chave)
@@ -96,7 +111,7 @@ export async function compartilhar({ canvas, chave, texto }) {
   return 'copiado'
 }
 
-export async function copiarTexto(texto) {
+export async function copiarTexto(texto: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(texto)
     return
@@ -112,8 +127,16 @@ export async function copiarTexto(texto) {
   area.remove()
 }
 
+export interface EntradaTexto {
+  config: ConfigEscala
+  chave: string
+  ocorrencias: Ocorrencia[]
+  designacoes: Record<string, string>
+  dirigentes: Dirigente[]
+}
+
 /** Resumo em texto pronto para colar no WhatsApp. */
-export function textoSimplificado({ config, chave, ocorrencias, designacoes, dirigentes }) {
+export function textoSimplificado({ config, chave, ocorrencias, designacoes, dirigentes }: EntradaTexto): string {
   const { ano, mes } = lerChaveMes(chave)
   const porId = new Map(dirigentes.map((d) => [d.id, d]))
   const linhas = [
@@ -142,7 +165,7 @@ export function textoSimplificado({ config, chave, ocorrencias, designacoes, dir
   return linhas.join('\n')
 }
 
-function baixar(blob, nome) {
+function baixar(blob: Blob, nome: string): void {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

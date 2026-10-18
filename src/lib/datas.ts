@@ -1,22 +1,23 @@
+import type { Campo, Ocorrencia } from './dominio'
 import { MESES } from './constants'
 
-export function chaveMes(ano, mes) {
+export function chaveMes(ano: number, mes: number): string {
   return `${ano}-${mes + 1}`
 }
 
-export function lerChaveMes(chave) {
+export function lerChaveMes(chave: string): { ano: number; mes: number } {
   const [ano, mes] = String(chave).split('-').map(Number)
   return { ano, mes: (mes || 1) - 1 }
 }
 
-export function nomeMes(mes) {
+export function nomeMes(mes: number): string {
   return MESES[mes] ?? ''
 }
 
 /** Gera todas as designações possíveis (data x campo) de um mês, em ordem cronológica. */
-export function ocorrenciasDoMes(ano, mes, campos) {
+export function ocorrenciasDoMes(ano: number, mes: number, campos: Campo[]): Ocorrencia[] {
   const totalDias = new Date(ano, mes + 1, 0).getDate()
-  const lista = []
+  const lista: Ocorrencia[] = []
 
   for (let dia = 1; dia <= totalDias; dia += 1) {
     const data = new Date(ano, mes, dia)
@@ -36,16 +37,16 @@ export function ocorrenciasDoMes(ano, mes, campos) {
   }
 
   return lista.sort((a, b) => {
-    if (a.data - b.data !== 0) return a.data - b.data
+    if (a.data.getTime() - b.data.getTime() !== 0) return a.data.getTime() - b.data.getTime()
     return String(a.campo.horario).localeCompare(String(b.campo.horario))
   })
 }
 
-export function rotuloData(ocorrencia) {
+export function rotuloData(ocorrencia: Ocorrencia): string {
   return `Dia ${ocorrencia.dia}`
 }
 
-export function dataExtenso(iso) {
+export function dataExtenso(iso: string): string {
   const [ano, mes, dia] = iso.split('-').map(Number)
   const d = new Date(ano, mes - 1, dia)
   return `${d.getDate()} de ${nomeMes(d.getMonth()).toLowerCase()}`

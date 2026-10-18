@@ -1,7 +1,8 @@
+import type { ConfigEscala, Dirigente, Ocorrencia, PayloadCompartilhado } from './dominio'
 import { lerChaveMes } from './datas'
 
 /** Codifica um objeto JSON em texto seguro para URL (base64url, sem padding). */
-function codificar(valor) {
+function codificar(valor: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(valor))
   let binario = ''
   for (let i = 0; i < bytes.length; i += 1) binario += String.fromCharCode(bytes[i])
@@ -9,31 +10,58 @@ function codificar(valor) {
 }
 
 /** Desfaz o codificar. Retorna null quando o conteúdo é inválido. */
-export function decodificar(texto) {
+export function decodificar(texto: string): PayloadCompartilhado | null {
   try {
     const base64 = String(texto).replace(/-/g, '+').replace(/_/g, '/')
     const preenchido = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
     const binario = atob(preenchido)
     const bytes = Uint8Array.from(binario, (c) => c.charCodeAt(0))
-    const dados = JSON.parse(new TextDecoder().decode(bytes))
-    if (!dados || !Array.isArray(dados.r)) return null
-    return dados
+    const dados: unknown = JSON.parse(new TextDecoder().decode(bytes))
+
+    if (!dados || typeof dados !== 'object') return null
+    const bruto = dados as Partial<PayloadCompartilhado>
+    if (!Array.isArray(bruto.r) || typeof bruto.t !== 'string' || typeof bruto.c !== 'string') return null
+
+    return {
+      t: bruto.t,
+      c: bruto.c,
+      a: Number(bruto.a) || 0,
+      m: Number(bruto.m) || 0,
+      r: bruto.r.map((linha): [string, string, string, string] => {
+        const [iso = '', horario = '', local = '', nome = ''] = Array.isArray(linha) ? linha : []
+        return [String(iso), String(horario), String(local), String(nome)]
+      }),
+    }
   } catch {
     return null
   }
+}
+
+export interface EntradaPayload {
+  config: ConfigEscala
+  chave: string
+  ocorrencias: Ocorrencia[]
+  designacoes: Record<string, string>
+  dirigentes: Dirigente[]
 }
 
 /**
  * Monta o payload mínimo da designação pronta: cabeçalho + linhas
  * [iso, horário, local, nome] — cabe em um link de WhatsApp.
  */
-export function montarPayload({ config, chave, ocorrencias, designacoes, dirigentes }) {
+export function montarPayload({
+  config,
+  chave,
+  ocorrencias,
+  designacoes,
+  dirigentes,
+}: EntradaPayload): PayloadCompartilhado {
   const { ano, mes } = lerChaveMes(chave)
   const porId = new Map(dirigentes.map((d) => [d.id, d]))
 
   const linhas = ocorrencias
     .filter((oc) => designacoes[oc.key])
-    .map((oc) => [
+    .map((oc): [string, string, string, string] => [
       oc.iso,
       String(oc.campo.horario),
       String(oc.campo.local),
@@ -49,12 +77,12 @@ export function montarPayload({ config, chave, ocorrencias, designacoes, dirigen
   }
 }
 
-export function linkDe(payload) {
+export function linkDe(payload: PayloadCompartilhado): string {
   const base = `${window.location.origin}${window.location.pathname}`
   return `${base}#/ver/${codificar(payload)}`
 }
 
-export function lerHashVer() {
+export function lerHashVer(): string | null {
   const hash = window.location.hash || ''
   const inicio = '#/ver/'
   if (!hash.startsWith(inicio)) return null

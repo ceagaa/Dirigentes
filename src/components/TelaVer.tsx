@@ -1,3 +1,5 @@
+import type { Ocorrencia } from '../lib/dominio'
+import type { ConfigEscala } from '../lib/dominio'
 import { useMemo, useRef } from 'react'
 import { FileDown, ImageDown, Link as LinkIcon, MapPin } from 'lucide-react'
 import { decodificar } from '../lib/compartilhamento'
@@ -5,12 +7,29 @@ import { baixarImagem, baixarPdf } from '../lib/export'
 import { Botao } from './ui'
 import EscalaCard from './EscalaCard'
 
-function isoParaDia(iso) {
+interface LinhaCompartilhada {
+  key: string
+  iso: string
+  dia: number
+  diaSemana: number
+  campo: { horario: string; local: string }
+  nome: string
+}
+
+function isoParaDia(iso: string): number {
   return new Date(`${iso}T12:00:00`).getDay()
 }
 
-export default function TelaVer({ payload, aoVoltar, aoAvisar }) {
-  const cardRef = useRef(null)
+export default function TelaVer({
+  payload,
+  aoVoltar,
+  aoAvisar,
+}: {
+  payload: string
+  aoVoltar: () => void
+  aoAvisar: (mensagem: string) => void
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
   const dados = useMemo(() => decodificar(payload ?? ''), [payload])
 
   const config = dados ? { titulo: dados.t, congregacao: dados.c } : null
@@ -20,7 +39,7 @@ export default function TelaVer({ payload, aoVoltar, aoAvisar }) {
     if (!dados) return []
     return dados.r
       .filter((linha) => Array.isArray(linha) && linha[0])
-      .map((linha, i) => {
+      .map((linha, i): LinhaCompartilhada => {
         const [iso, horario, local, nome] = linha
         return {
           key: `v-${i}`,
@@ -38,7 +57,7 @@ export default function TelaVer({ payload, aoVoltar, aoAvisar }) {
     [ocorrencias],
   )
 
-  if (!dados) {
+  if (!dados || !config) {
     return (
       <div className="mx-auto flex min-h-svh max-w-lg flex-col items-center justify-center gap-4 px-6 text-center">
         <LinkIcon className="size-8 text-wine" aria-hidden="true" />
@@ -53,6 +72,9 @@ export default function TelaVer({ payload, aoVoltar, aoAvisar }) {
       </div>
     )
   }
+
+  const ocorrenciasCard = ocorrencias as unknown as Ocorrencia[]
+  const configCard = config as unknown as ConfigEscala
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6 pb-24">
@@ -77,8 +99,8 @@ export default function TelaVer({ payload, aoVoltar, aoAvisar }) {
       <div className="scroll-hint overflow-x-auto pb-2">
         <EscalaCard
           ref={cardRef}
-          config={config}
-          ocorrencias={ocorrencias}
+          config={configCard}
+          ocorrencias={ocorrenciasCard}
           dirigentes={[]}
           designacoes={{}}
           nomes={nomes}
@@ -94,7 +116,7 @@ export default function TelaVer({ payload, aoVoltar, aoAvisar }) {
               await baixarPdf(cardRef.current, chave)
               aoAvisar('PDF baixado.')
             } catch (e) {
-              aoAvisar(e?.message || 'Não foi possível gerar o PDF.')
+              aoAvisar(e instanceof Error ? e.message : 'Não foi possível gerar o PDF.')
             }
           }}
         >
@@ -108,7 +130,7 @@ export default function TelaVer({ payload, aoVoltar, aoAvisar }) {
               await baixarImagem(cardRef.current, chave)
               aoAvisar('Imagem baixada.')
             } catch (e) {
-              aoAvisar(e?.message || 'Não foi possível gerar a imagem.')
+              aoAvisar(e instanceof Error ? e.message : 'Não foi possível gerar a imagem.')
             }
           }}
         >

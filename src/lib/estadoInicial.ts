@@ -1,9 +1,10 @@
+import type { Campo, Dirigente, Estado, Escalas, RegistroMes } from './dominio'
 import { CONGREGACAO_PADRAO, TITULO_PADRAO, frequenciaValida } from './constants'
 
 export const ID_REGISTRO = 'default_config'
 export const CHAVE_LOCAL = 'dirigentes:estado:v1'
 
-export function estadoInicial() {
+export function estadoInicial(): Estado {
   return {
     dirigentes: [
       {
@@ -95,14 +96,34 @@ export function estadoInicial() {
   }
 }
 
+/** Lê o registro do mês a partir das escalas, garantindo o formato mínimo. */
+export function registroDe(escalas: Escalas, chave: string): RegistroMes {
+  const bruto = escalas[chave]
+  if (!bruto || typeof bruto !== 'object') return { auto: {}, manuais: {} }
+  const registro = bruto as RegistroMes
+  return {
+    auto: registro.auto ?? {},
+    manuais: registro.manuais ?? {},
+    geradoEm: registro.geradoEm,
+  }
+}
+
+interface BrutoEstado {
+  dirigentes?: Dirigente[]
+  config_campos?: Campo[]
+  escalas?: Escalas
+  [chave: string]: unknown
+}
+
 /** Normaliza qualquer estado vindo do banco/local preservando o formato mínimo. */
-export function normalizarEstado(bruto) {
+export function normalizarEstado(bruto: unknown): Estado {
   const base = estadoInicial()
   if (!bruto || typeof bruto !== 'object') return base
 
-  const config = bruto.escalas?._config ?? {}
+  const dados = bruto as BrutoEstado
+  const config = dados.escalas?._config ?? ({} as Partial<Escalas['_config']>)
 
-  const normalizarCampos = (lista) =>
+  const normalizarCampos = (lista: Campo[]): Campo[] =>
     lista.map((c) => ({
       ...c,
       diaSemana: Number(c.diaSemana),
@@ -110,12 +131,12 @@ export function normalizarEstado(bruto) {
     }))
 
   return {
-    dirigentes: Array.isArray(bruto.dirigentes) ? bruto.dirigentes : base.dirigentes,
-    config_campos: Array.isArray(bruto.config_campos)
-      ? normalizarCampos(bruto.config_campos)
+    dirigentes: Array.isArray(dados.dirigentes) ? dados.dirigentes : base.dirigentes,
+    config_campos: Array.isArray(dados.config_campos)
+      ? normalizarCampos(dados.config_campos)
       : base.config_campos,
     escalas: {
-      ...(bruto.escalas && typeof bruto.escalas === 'object' ? bruto.escalas : {}),
+      ...(dados.escalas && typeof dados.escalas === 'object' ? dados.escalas : {}),
       _config: {
         titulo: config.titulo || TITULO_PADRAO,
         congregacao: config.congregacao || CONGREGACAO_PADRAO,

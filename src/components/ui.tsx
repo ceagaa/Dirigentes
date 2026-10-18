@@ -1,6 +1,9 @@
+import type { ReactNode } from 'react'
+import type { VarianteBotao } from '../lib/dominio'
 import { useEffect, useRef } from 'react'
+import type { LucideIcon } from 'lucide-react'
 
-const VARIA = {
+const VARIA: Record<VarianteBotao, string> = {
   primario: 'bg-petrol text-white hover:bg-petrol-dark border border-petrol hover:border-petrol-dark',
   vinho: 'bg-wine text-white hover:bg-wine-dark border border-wine hover:border-wine-dark',
   secundario:
@@ -8,7 +11,11 @@ const VARIA = {
   fantasma: 'border border-transparent text-muted hover:text-ink hover:bg-line-soft',
 }
 
-export function Botao({ variante = 'secundario', className = '', children, ...props }) {
+type BotaoProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variante?: VarianteBotao
+}
+
+export function Botao({ variante = 'secundario', className = '', children, ...props }: BotaoProps) {
   return (
     <button
       type="button"
@@ -20,7 +27,9 @@ export function Botao({ variante = 'secundario', className = '', children, ...pr
   )
 }
 
-export function Rotulo({ htmlFor, children }) {
+type RotuloProps = React.LabelHTMLAttributes<HTMLLabelElement>
+
+export function Rotulo({ htmlFor, children }: RotuloProps) {
   return (
     <label htmlFor={htmlFor} className="mb-1 block text-[13px] font-semibold text-ink">
       {children}
@@ -31,11 +40,11 @@ export function Rotulo({ htmlFor, children }) {
 const BASE_CAMPO =
   'w-full rounded border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-petrol'
 
-export function Input({ className = '', ...props }) {
+export function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`${BASE_CAMPO} ${className}`} {...props} />
 }
 
-export function Select({ className = '', children, ...props }) {
+export function Select({ className = '', children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select className={`${BASE_CAMPO} appearance-none pr-8 ${className}`} {...props}>
       {children}
@@ -43,7 +52,11 @@ export function Select({ className = '', children, ...props }) {
   )
 }
 
-export function Chip({ ativo, children, ...props }) {
+type ChipProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  ativo: boolean
+}
+
+export function Chip({ ativo, children, ...props }: ChipProps) {
   return (
     <button
       type="button"
@@ -60,7 +73,13 @@ export function Chip({ ativo, children, ...props }) {
   )
 }
 
-export function Vazio({ icone: Icone, titulo, acao }) {
+type VazioProps = {
+  icone?: LucideIcon
+  titulo: string
+  acao?: ReactNode
+}
+
+export function Vazio({ icone: Icone, titulo, acao }: VazioProps) {
   return (
     <div className="flex flex-col items-center gap-3 border border-dashed border-line bg-paper px-6 py-12 text-center">
       {Icone ? <Icone className="size-7 text-muted" aria-hidden="true" /> : null}
@@ -70,22 +89,31 @@ export function Vazio({ icone: Icone, titulo, acao }) {
   )
 }
 
-export function Modal({ aberto, aoFechar, titulo, descricao, children, largura = 'max-w-2xl' }) {
-  const painel = useRef(null)
-  const anterior = useRef(null)
+type ModalProps = {
+  aberto: boolean
+  aoFechar: () => void
+  titulo: string
+  descricao?: string
+  children: ReactNode
+  largura?: string
+}
+
+export function Modal({ aberto, aoFechar, titulo, descricao, children, largura = 'max-w-2xl' }: ModalProps) {
+  const painel = useRef<HTMLDivElement>(null)
+  const anterior = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (!aberto) return undefined
 
-    anterior.current = document.activeElement
-    const alvo = painel.current?.querySelector('button, [href], input, select, textarea')
+    anterior.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const alvo = painel.current?.querySelector<HTMLElement>('button, [href], input, select, textarea')
     alvo?.focus()
 
-    const aoTeclar = (evento) => {
+    const aoTeclar = (evento: KeyboardEvent) => {
       if (evento.key === 'Escape') aoFechar()
       if (evento.key !== 'Tab' || !painel.current) return
 
-      const focaveis = painel.current.querySelectorAll(
+      const focaveis = painel.current.querySelectorAll<HTMLElement>(
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
       )
       if (!focaveis.length) return
@@ -157,3 +185,4 @@ export function Modal({ aberto, aoFechar, titulo, descricao, children, largura =
     </div>
   )
 }
+

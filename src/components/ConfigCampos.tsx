@@ -1,3 +1,4 @@
+import type { Campo, ConfigEscala, Dirigente } from '../lib/dominio'
 import { useState } from 'react'
 import {
   CalendarDays,
@@ -12,12 +13,27 @@ import {
 import { DIAS_SEMANA, FREQUENCIAS, HORARIOS_PADRAO, infoDia } from '../lib/constants'
 import { Botao, Input, Rotulo, Select, Vazio } from './ui'
 
-function novoId() {
+type FormCampo = Partial<Campo> & {
+  diaSemana: number
+  horario: string
+  local: string
+  fixo: string | null
+}
+
+function novoId(): string {
   return `campo-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 }
 
-function vazio() {
+function vazio(): FormCampo {
   return { diaSemana: 3, horario: '19:30', local: '', fixo: null }
+}
+
+interface ConfigCamposProps {
+  config: ConfigEscala
+  campos: Campo[]
+  dirigentes: Dirigente[]
+  aoAlterarConfig: (patch: Partial<ConfigEscala>) => void
+  aoAlterarCampos: (lista: Campo[]) => void
 }
 
 export default function ConfigCampos({
@@ -26,20 +42,20 @@ export default function ConfigCampos({
   dirigentes,
   aoAlterarConfig,
   aoAlterarCampos,
-}) {
-  const [form, setForm] = useState(null)
+}: ConfigCamposProps) {
+  const [form, setForm] = useState<FormCampo | null>(null)
   const [erro, setErro] = useState('')
 
   const horarios = [...new Set([...HORARIOS_PADRAO, ...campos.map((c) => c.horario)])].sort()
   const ativos = dirigentes.filter((d) => d.ativo !== false && d.nome)
 
   function salvar() {
-    if (!form.local.trim()) {
+    if (!form?.local.trim()) {
       setErro('Informe o ponto de encontro.')
       return
     }
 
-    const registro = {
+    const registro: Campo = {
       ...form,
       local: form.local.trim(),
       diaSemana: Number(form.diaSemana),

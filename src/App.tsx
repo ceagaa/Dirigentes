@@ -1,3 +1,5 @@
+import type { AbaNav, Estado, RegistroMes, Tela } from './lib/dominio'
+import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CircleAlert,
@@ -18,11 +20,20 @@ import TabelaEscala from './components/TabelaEscala'
 import TelaVer from './components/TelaVer'
 import { lerHashVer, linkDe, montarPayload } from './lib/compartilhamento'
 import { chaveMes, ocorrenciasDoMes, nomeMes } from './lib/datas'
-import { estadoInicial } from './lib/estadoInicial'
+import { estadoInicial, registroDe } from './lib/estadoInicial'
 import { gerarEscala } from './lib/rodizio'
 import { carregarEstado, salvarEstado, supabaseAtivo } from './lib/supabase'
 
-const STATUS = {
+type StatusId = 'carregando' | 'salvando' | 'sincronizado' | 'local' | 'erro'
+
+interface StatusInfo {
+  texto: string
+  Icone: LucideIcon
+  gira?: boolean
+  estilo: string
+}
+
+const STATUS: Record<StatusId, StatusInfo> = {
   carregando: { texto: 'Carregando…', Icone: Loader2, gira: true, estilo: 'bg-canvas text-muted' },
   salvando: { texto: 'Salvando…', Icone: RefreshCw, gira: true, estilo: 'bg-canvas text-muted' },
   sincronizado: { texto: 'Sincronizado', Icone: CloudCheck, estilo: 'bg-petrol-soft text-petrol' },
@@ -30,27 +41,25 @@ const STATUS = {
   erro: { texto: 'Sem sincronização', Icone: CircleAlert, estilo: 'bg-wine-soft text-wine' },
 }
 
-const REGISTRO_VAZIO = { auto: {}, manuais: {} }
-
 export default function App() {
-  const [estado, setEstado] = useState(estadoInicial)
+  const [estado, setEstado] = useState<Estado>(estadoInicial)
   const [pronto, setPronto] = useState(false)
-  const [splash, setSplash] = useState('ativo')
-  const [status, setStatus] = useState('carregando')
-  const [tela, setTela] = useState('resumo')
+  const [splash, setSplash] = useState<'ativo' | 'saindo' | null>('ativo')
+  const [status, setStatus] = useState<StatusId>('carregando')
+  const [tela, setTela] = useState<Tela>('resumo')
   const [ano, setAno] = useState(() => new Date().getFullYear())
   const [mes, setMes] = useState(() => new Date().getMonth())
   const [manterManuais, setManterManuais] = useState(true)
   const [modalAberto, setModalAberto] = useState(false)
   const [aviso, setAviso] = useState('')
-  const [payloadVer, setPayloadVer] = useState(() => lerHashVer())
-  const cardRef = useRef(null)
+  const [payloadVer, setPayloadVer] = useState<string | null>(() => lerHashVer())
+  const cardRef = useRef<HTMLDivElement>(null)
   const inicioSplash = useRef(0)
 
   const { dirigentes, config_campos: campos, escalas } = estado
   const config = escalas._config
   const chave = chaveMes(ano, mes)
-  const registro = escalas[chave] ?? REGISTRO_VAZIO
+  const registro = registroDe(escalas, chave)
 
   const ocorrencias = useMemo(
     () => ocorrenciasDoMes(ano, mes, campos),
@@ -120,12 +129,12 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [aviso])
 
-  function atualizar(fn) {
+  function atualizar(fn: (estado: Estado) => Estado) {
     setEstado((atual) => fn(atual))
   }
 
-  function alterarRegistro(chaveDoMes, novoRegistro) {
-    atualizar((e) => ({ ...e, escalas: { ...e.escalas, [chaveDoMes]: novoRegistro } }))
+  function alterarRegistro(chaveDoMes: string, novoRegistro: RegistroMes) {
+    atualizar((e) => ({ ...e, escalas: { ...e.escalas, [chaveDoMes]: novoRegistro } as Estado['escalas'] }))
   }
 
   function gerar() {
@@ -145,7 +154,7 @@ export default function App() {
     )
   }
 
-  function alterarDesignacao(key, valor) {
+  function alterarDesignacao(key: string, valor: string) {
     const auto = registro.auto ?? {}
     const manuais = { ...(registro.manuais ?? {}) }
 
@@ -201,7 +210,7 @@ export default function App() {
     setPayloadVer(null)
   }
 
-  const abaNav = tela === 'montagem' ? 'designacao' : tela
+  const abaNav: AbaNav = tela === 'montagem' ? 'designacao' : (tela as AbaNav)
   const info = STATUS[status]
 
   if (payloadVer) {

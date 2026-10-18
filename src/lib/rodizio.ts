@@ -1,17 +1,35 @@
+import type { Dirigente, Ocorrencia } from './dominio'
 import { frequenciaDe } from './constants'
 
 /**
  * Intervalo mínimo em dias entre duas designações do mesmo dirigente,
  * conforme a frequência configurada.
  */
-const GAP_DIAS = {
+const GAP_DIAS: Record<string, number> = {
   semanal: 3,
   quinzenal: 12,
   mensal: 25,
   bimestral: 50,
 }
 
-function hash(texto) {
+interface Estatistica {
+  id: string
+  nome: string
+  dias: Set<number>
+  horarios: Set<string>
+  gap: number
+  capacidade: number
+  restantes: number
+  total: number
+  ultimoTs: number
+}
+
+interface CandidatoEscolhido {
+  c: Estatistica
+  placar: number[]
+}
+
+function hash(texto: string): number {
   let h = 5381
   for (let i = 0; i < texto.length; i += 1) {
     h = ((h << 5) + h + texto.charCodeAt(i)) | 0
@@ -19,7 +37,7 @@ function hash(texto) {
   return Math.abs(h)
 }
 
-function preparar(dirigentes, ocorrencias) {
+function preparar(dirigentes: Dirigente[], ocorrencias: Ocorrencia[]): Estatistica[] {
   return dirigentes
     .filter((d) => d && d.ativo !== false && d.nome)
     .map((d) => {
@@ -43,11 +61,22 @@ function preparar(dirigentes, ocorrencias) {
     })
 }
 
-function diasDesde(ultimoTs, dataTs) {
+function diasDesde(ultimoTs: number, dataTs: number): number {
   return ultimoTs ? (dataTs - ultimoTs) / 86400000 : Number.POSITIVE_INFINITY
 }
 
-function escolher(candidatos, { chave, semente, dataTs, ignorarCapacidade, ignorarGap }) {
+interface ContextoEscolha {
+  chave: string
+  semente: string
+  dataTs: number
+  ignorarCapacidade: boolean
+  ignorarGap: boolean
+}
+
+function escolher(
+  candidatos: Estatistica[],
+  { chave, semente, dataTs, ignorarCapacidade, ignorarGap }: ContextoEscolha,
+): Estatistica | null {
   const validos = candidatos.filter((c) => {
     if (!ignorarCapacidade && c.restantes <= 0) return false
     if (!ignorarGap && diasDesde(c.ultimoTs, dataTs) < c.gap) return false
@@ -56,7 +85,7 @@ function escolher(candidatos, { chave, semente, dataTs, ignorarCapacidade, ignor
 
   if (!validos.length) return null
 
-  return validos
+  const ordenados: CandidatoEscolhido[] = validos
     .map((c) => {
       // Sem folga disponível, prefere quem está mais próximo da frequência configurada.
       const aderencia = diasDesde(c.ultimoTs, dataTs) / c.gap
@@ -71,17 +100,19 @@ function escolher(candidatos, { chave, semente, dataTs, ignorarCapacidade, ignor
         if (a.placar[i] !== b.placar[i]) return a.placar[i] - b.placar[i]
       }
       return 0
-    })[0].c
+    })
+
+  return ordenados[0].c
 }
 
-function comprometer(estatistica, ocorrencia) {
+function comprometer(estatistica: Estatistica, ocorrencia: Ocorrencia): void {
   estatistica.total += 1
   estatistica.restantes -= 1
   estatistica.ultimoTs = ocorrencia.data.getTime()
 }
 
-function cascata(candidatos, contexto) {
-  const fases = [
+function cascata(candidatos: Estatistica[], contexto: Omit<ContextoEscolha, 'ignorarCapacidade' | 'ignorarGap'>): Estatistica | null {
+  const fases: Array<Pick<ContextoEscolha, 'ignorarCapacidade' | 'ignorarGap'>> = [
     { ignorarCapacidade: false, ignorarGap: false },
     { ignorarCapacidade: true, ignorarGap: false },
     { ignorarCapacidade: false, ignorarGap: true },
@@ -94,19 +125,37 @@ function cascata(candidatos, contexto) {
   return null
 }
 
+export interface EntradaGerarEscala {
+  dirigentes: Dirigente[]
+  ocorrencias: Ocorrencia[]
+  manuais?: Record<string, string>
+  semente?: string
+  fixa?: boolean
+}
+
+export interface ResultadoEscala {
+  auto: Record<string, string>
+  designacoes: Record<string, string>
+}
+
 /**
  * Rodízio inteligente: respeita frequência, disponibilidade de dia/horário,
  * folga mínima entre designações e equilíbrio (menor carga primeiro).
  * Designações marcadas como manuais não são sobrescritas, mas a sugestão
  * automática daquela linha continua calculada para permitir desfazer o ajuste.
  * Com `fixa` ligado, cada dia de campo usa a pessoa fixa cadastrada nele.
- * @returns {{ auto: Record<string,string>, designacoes: Record<string,string> }}
  */
-export function gerarEscala({ dirigentes, ocorrencias, manuais = {}, semente = '', fixa = false }) {
+export function gerarEscala({
+  dirigentes,
+  ocorrencias,
+  manuais = {},
+  semente = '',
+  fixa = false,
+}: EntradaGerarEscala): ResultadoEscala {
   const stats = preparar(dirigentes, ocorrencias)
   const porId = new Map(stats.map((s) => [s.id, s]))
-  const auto = {}
-  const designacoes = { ...manuais }
+  const auto: Record<string, string> = {}
+  const designacoes: Record<string, string> = { ...manuais }
 
   const porChave = new Map(ocorrencias.map((o) => [o.key, o]))
   for (const [chave, id] of Object.entries(manuais)) {
@@ -135,9 +184,9 @@ export function gerarEscala({ dirigentes, ocorrencias, manuais = {}, semente = '
       continue
     }
 
-    const fixo = fixa ? oc.campo?.fixo : null
+    const fixo = fixa ? oc.campo?.fixo ?? null : null
     const estatisticaFixa = fixo ? porId.get(fixo) : null
-    if (estatisticaFixa) {
+    if (estatisticaFixa && fixo) {
       auto[oc.key] = fixo
       designacoes[oc.key] = fixo
       comprometer(estatisticaFixa, oc)
@@ -156,7 +205,7 @@ export function gerarEscala({ dirigentes, ocorrencias, manuais = {}, semente = '
 }
 
 /** Dirigentes ativos disponíveis para um dia/horário, com os disponíveis primeiro. */
-export function candidatosPara(ocorrencia, dirigentes) {
+export function candidatosPara(ocorrencia: Ocorrencia, dirigentes: Dirigente[]): Array<Dirigente & { disponivel: boolean }> {
   const ativos = dirigentes.filter((d) => d && d.ativo !== false && d.nome)
   const disponiveis = ativos.filter(
     (d) =>

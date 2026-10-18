@@ -1,4 +1,13 @@
-export const DIAS_SEMANA = [
+import type { FrequenciaId } from './dominio'
+
+export interface InfoDia {
+  idx: number
+  curto: string
+  nome: string
+  fimDeSemana: boolean
+}
+
+export const DIAS_SEMANA: readonly InfoDia[] = [
   { idx: 0, curto: 'Dom', nome: 'Domingo', fimDeSemana: true },
   { idx: 1, curto: 'Seg', nome: 'Segunda-Feira', fimDeSemana: false },
   { idx: 2, curto: 'Ter', nome: 'Terça-Feira', fimDeSemana: false },
@@ -9,7 +18,7 @@ export const DIAS_SEMANA = [
 ]
 
 /** Nome curto como na planilha base: "Quarta - 05/03", sem o "-Feira". */
-export const NOMES_DIAS_CURTOS = [
+export const NOMES_DIAS_CURTOS: readonly string[] = [
   'Domingo',
   'Segunda',
   'Terça',
@@ -19,21 +28,27 @@ export const NOMES_DIAS_CURTOS = [
   'Sábado',
 ]
 
-export function nomeDiaCurto(idx) {
+export function nomeDiaCurto(idx: number): string {
   return NOMES_DIAS_CURTOS[idx] ?? 'Dia'
 }
 
 /** Ordem de exibição dos chips de disponibilidade (semana de trabalho primeiro). */
-export const ORDEM_DIAS = [1, 2, 3, 4, 5, 6, 0]
+export const ORDEM_DIAS: readonly number[] = [1, 2, 3, 4, 5, 6, 0]
 
-export const FREQUENCIAS = [
+export interface Frequencia {
+  id: FrequenciaId
+  label: string
+  intervaloSemanas: number
+}
+
+export const FREQUENCIAS: readonly Frequencia[] = [
   { id: 'semanal', label: 'Semanal', intervaloSemanas: 1 },
   { id: 'quinzenal', label: 'A cada 2 semanas', intervaloSemanas: 2 },
   { id: 'mensal', label: 'Mensal', intervaloSemanas: 4 },
   { id: 'bimestral', label: 'A cada 2 meses', intervaloSemanas: 8 },
 ]
 
-export const MESES = [
+export const MESES: readonly string[] = [
   'Janeiro',
   'Fevereiro',
   'Março',
@@ -48,7 +63,7 @@ export const MESES = [
   'Dezembro',
 ]
 
-export const HORARIOS_PADRAO = [
+export const HORARIOS_PADRAO: readonly string[] = [
   '06:00',
   '06:30',
   '07:00',
@@ -73,7 +88,7 @@ export const CORES = {
   conteudoSemana: '#FFF3F3',
   linha: '#D9E2E5',
   texto: '#10262B',
-}
+} as const
 
 /** Cores exatas da aba "SAÍDA DE CAMPO" da planilha base (fiel no html2canvas). */
 export const CORES_PLANILHA = {
@@ -81,24 +96,24 @@ export const CORES_PLANILHA = {
   fundo: '#EAF3FA',
   cabecalho: '#3C7F8B',
   linha: '#D8D8D8',
-}
+} as const
 
 export const TITULO_PADRAO = 'Programação para serviço de campo'
 export const CONGREGACAO_PADRAO = 'São João Do Paraíso - 140921'
 export const CITACAO = 'Mas que todas as coisas ocorram com decência e ordem - 1 Cor 14:40'
 
-export function infoDia(idx) {
+export function infoDia(idx: number): InfoDia {
   return DIAS_SEMANA[idx] ?? DIAS_SEMANA[0]
 }
 
-export function isFimDeSemana(idx) {
+export function isFimDeSemana(idx: number): boolean {
   return idx === 0 || idx === 6
 }
 
-export function frequenciaDe(id) {
+export function frequenciaDe(id: string | undefined): Frequencia {
   return FREQUENCIAS.find((f) => f.id === id) ?? FREQUENCIAS[0]
 }
 
-export function frequenciaValida(id) {
-  return FREQUENCIAS.some((f) => f.id === id) ? id : 'quinzenal'
+export function frequenciaValida(id: string | undefined): FrequenciaId {
+  return FREQUENCIAS.some((f) => f.id === id) ? (id as FrequenciaId) : 'quinzenal'
 }

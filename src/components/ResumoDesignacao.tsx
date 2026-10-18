@@ -1,3 +1,4 @@
+import type { Campo, ConfigEscala, Dirigente, Ocorrencia } from '../lib/dominio'
 import {
   CalendarDays,
   CheckCircle2,
@@ -12,7 +13,7 @@ import {
 import { MESES, nomeDiaCurto } from '../lib/constants'
 import { Botao, Select } from './ui'
 
-function Tile({ valor, rotulo, alerta }) {
+function Tile({ valor, rotulo, alerta }: { valor: number; rotulo: string; alerta?: boolean }) {
   return (
     <div className="border border-line bg-paper px-4 py-3">
       <p
@@ -25,6 +26,28 @@ function Tile({ valor, rotulo, alerta }) {
       <p className="mt-1.5 text-[13px] font-semibold text-muted">{rotulo}</p>
     </div>
   )
+}
+
+interface Status {
+  rotulo: string
+  estilo: string
+}
+
+interface ResumoDesignacaoProps {
+  ano: number
+  mes: number
+  aoMudarData: (ano: number, mes: number) => void
+  config: ConfigEscala
+  ocorrencias: Ocorrencia[]
+  efetivas: Record<string, string>
+  dirigentes: Dirigente[]
+  campos: Campo[]
+  pronta: boolean
+  aoMontar: () => void
+  aoVer: () => void
+  aoCopiarLink: () => void
+  aoConfigurar: () => void
+  aoCadastrar: () => void
 }
 
 export default function ResumoDesignacao({
@@ -42,7 +65,7 @@ export default function ResumoDesignacao({
   aoCopiarLink,
   aoConfigurar,
   aoCadastrar,
-}) {
+}: ResumoDesignacaoProps) {
   const anos = Array.from({ length: 9 }, (_, i) => ano - 4 + i)
   const designados = ocorrencias.filter((o) => efetivas[o.key]).length
   const pendentes = ocorrencias.length - designados
@@ -50,7 +73,7 @@ export default function ResumoDesignacao({
   const semCampos = !campos.length
   const semDirigentes = !dirigentes.length
 
-  const status = semCampos
+  const status: Status = semCampos
     ? { rotulo: 'Sem dias de campo', estilo: 'bg-canvas text-muted border-line' }
     : !ocorrencias.length
       ? { rotulo: 'Mês sem saídas', estilo: 'bg-canvas text-muted border-line' }

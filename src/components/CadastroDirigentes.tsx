@@ -1,13 +1,23 @@
+import type { Campo, Dirigente, FrequenciaId } from '../lib/dominio'
 import { useMemo, useState } from 'react'
 import { Check, Phone, Plus, Trash, UserPlus, Users } from 'lucide-react'
 import { FREQUENCIAS, HORARIOS_PADRAO, ORDEM_DIAS, infoDia } from '../lib/constants'
 import { Botao, Chip, Input, Rotulo, Select, Vazio } from './ui'
 
-function novoId() {
+type FormDirigente = Partial<Dirigente> & {
+  nome: string
+  telefone: string
+  ativo: boolean
+  frequencia: FrequenciaId | string
+  dias: number[]
+  horarios: string[]
+}
+
+function novoId(): string {
   return `dir-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 }
 
-function formularioVazio(frequenciaPadrao) {
+function formularioVazio(frequenciaPadrao?: string): FormDirigente {
   return {
     nome: '',
     telefone: '',
@@ -18,8 +28,20 @@ function formularioVazio(frequenciaPadrao) {
   }
 }
 
-export default function CadastroDirigentes({ dirigentes, campos, frequenciaPadrao, aoAlterar }) {
-  const [form, setForm] = useState(null)
+interface CadastroDirigentesProps {
+  dirigentes: Dirigente[]
+  campos: Campo[]
+  frequenciaPadrao: string
+  aoAlterar: (lista: Dirigente[]) => void
+}
+
+export default function CadastroDirigentes({
+  dirigentes,
+  campos,
+  frequenciaPadrao,
+  aoAlterar,
+}: CadastroDirigentesProps) {
+  const [form, setForm] = useState<FormDirigente | null>(null)
   const [erro, setErro] = useState('')
 
   const horarios = useMemo(() => {
@@ -31,7 +53,7 @@ export default function CadastroDirigentes({ dirigentes, campos, frequenciaPadra
 
   const ativos = dirigentes.filter((d) => d.ativo !== false).length
 
-  function abrir(novo = null) {
+  function abrir(novo: Dirigente | null = null) {
     setErro('')
     setForm(
       novo
@@ -40,26 +62,30 @@ export default function CadastroDirigentes({ dirigentes, campos, frequenciaPadra
     )
   }
 
-  function alternar(campo, valor) {
-    setForm((f) => ({ ...f, [campo]: valor }))
+  function alternar<K extends keyof FormDirigente>(campo: K, valor: FormDirigente[K]) {
+    setForm((f) => (f ? { ...f, [campo]: valor } : f))
   }
 
-  function alternarNaLista(campo, valor) {
+  function alternarNaLista(campo: 'dias' | 'horarios', valor: number | string) {
     setForm((f) => {
-      const lista = new Set(f[campo])
+      if (!f) return f
+      const lista = new Set<number | string>(f[campo])
       if (lista.has(valor)) lista.delete(valor)
       else lista.add(valor)
-      return { ...f, [campo]: [...lista].sort((a, b) => String(a).localeCompare(String(b))) }
+      return {
+        ...f,
+        [campo]: [...lista].sort((a, b) => String(a).localeCompare(String(b))),
+      }
     })
   }
 
   function salvar() {
-    if (!form.nome.trim()) {
+    if (!form?.nome.trim()) {
       setErro('Informe o nome do dirigente.')
       return
     }
 
-    const registro = {
+    const registro: Dirigente = {
       ...form,
       nome: form.nome.trim(),
       telefone: form.telefone.trim(),
@@ -78,11 +104,11 @@ export default function CadastroDirigentes({ dirigentes, campos, frequenciaPadra
     setErro('')
   }
 
-  function remover(id) {
+  function remover(id: string) {
     aoAlterar(dirigentes.filter((d) => d.id !== id))
   }
 
-  function alternarAtivo(id) {
+  function alternarAtivo(id: string) {
     aoAlterar(dirigentes.map((d) => (d.id === id ? { ...d, ativo: d.ativo === false } : d)))
   }
 

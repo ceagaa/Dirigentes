@@ -1,6 +1,6 @@
 import { MapPin } from 'lucide-react'
 
-export default function Splash({ congregacao, saindo }) {
+export default function Splash({ congregacao, saindo }: { congregacao: string; saindo: boolean }) {
   return (
     <div
       className={`fixed inset-0 z-[60] flex flex-col items-center justify-center bg-petrol px-6 text-center text-white splash ${

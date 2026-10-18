@@ -1,16 +1,29 @@
-import { forwardRef, Fragment } from 'react'
+import type { CSSProperties, Ref } from 'react'
+import type { ConfigEscala, Dirigente, Ocorrencia } from '../lib/dominio'
+import { Fragment, forwardRef } from 'react'
 import { CORES_PLANILHA, nomeDiaCurto } from '../lib/constants'
 import { candidatosPara } from '../lib/rodizio'
 
-const borda = { borderColor: CORES_PLANILHA.linha }
-const celula = {
+const borda: CSSProperties = { borderColor: CORES_PLANILHA.linha }
+const celula: CSSProperties = {
   backgroundColor: CORES_PLANILHA.fundo,
   color: CORES_PLANILHA.texto,
   ...borda,
 }
 
-function rotuloDia(oc) {
+function rotuloDia(oc: Ocorrencia): string {
   return `${nomeDiaCurto(oc.diaSemana)} - ${oc.iso.slice(8, 10)}/${oc.iso.slice(5, 7)}`
+}
+
+export interface EscalaCardProps {
+  config: ConfigEscala
+  ocorrencias: Ocorrencia[]
+  dirigentes: Dirigente[]
+  designacoes: Record<string, string>
+  manuais?: Record<string, string>
+  aoAlterarDesignacao?: (chave: string, idDirigente: string) => void
+  somenteLeitura?: boolean
+  nomes?: Record<string, string> | null
 }
 
 const EscalaCard = forwardRef(function EscalaCard(
@@ -23,8 +36,8 @@ const EscalaCard = forwardRef(function EscalaCard(
     aoAlterarDesignacao,
     somenteLeitura = false,
     nomes = null,
-  },
-  ref,
+  }: EscalaCardProps,
+  ref: Ref<HTMLDivElement>,
 ) {
   return (
     <div
