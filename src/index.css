@@ -1,0 +1,123 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Paleta da escala (hex puro para fidelidade no html2canvas) */
+  --color-petrol: #045a6c;
+  --color-petrol-dark: #034250;
+  --color-petrol-soft: #f9fbfd;
+  --color-wine: #7e0024;
+  --color-wine-dark: #5c001a;
+  --color-wine-soft: #fff3f3;
+
+  /* Paleta da aplicação */
+  --color-ink: #10262b;
+  --color-muted: #5b7176;
+  --color-line: #d8e1e3;
+  --color-line-soft: #e9eff0;
+  --color-canvas: #eef2f3;
+  --color-paper: #ffffff;
+
+  --font-display: Georgia, 'Times New Roman', Times, serif;
+  --font-sans: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  button {
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-petrol);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+}
+
+@utility scroll-hint {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+/*
+ * Durante a exportação o dropdown vira texto puro,
+ * mantendo o cartão com a mesma aparência da planilha.
+ */
+.escala-card .rotulo-dirigente {
+  display: none;
+}
+
+.escala-card.capturando .selecao-dirigente {
+  display: none;
+}
+
+.escala-card.capturando .rotulo-dirigente {
+  display: inline;
+}
+
+.escala-card.capturando .marcador-manual {
+  display: none;
+}
+
+.splash {
+  animation: splash-entrar 0.4s ease-out both;
+}
+
+.splash-saindo {
+  pointer-events: none;
+  animation: splash-sair 0.45s ease-in both;
+}
+
+@keyframes splash-entrar {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes splash-sair {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
