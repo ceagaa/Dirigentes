@@ -19,7 +19,7 @@ export function Botao({ variante = 'secundario', className = '', children, ...pr
   return (
     <button
       type="button"
-      className={`inline-flex items-center justify-center gap-2 rounded px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIA[variante]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIA[variante]} ${className}`}
       {...props}
     >
       {children}
@@ -38,7 +38,7 @@ export function Rotulo({ htmlFor, children }: RotuloProps) {
 }
 
 const BASE_CAMPO =
-  'w-full rounded border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-petrol'
+  'w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-petrol'
 
 export function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`${BASE_CAMPO} ${className}`} {...props} />
@@ -61,7 +61,7 @@ export function Chip({ ativo, children, ...props }: ChipProps) {
     <button
       type="button"
       aria-pressed={ativo}
-      className={`rounded border px-2.5 py-1.5 text-[13px] font-semibold transition-colors ${
+      className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors ${
         ativo
           ? 'border-petrol bg-petrol text-white'
           : 'border-line bg-paper text-muted hover:border-petrol hover:text-petrol'
@@ -154,7 +154,7 @@ export function Modal({ aberto, aoFechar, titulo, descricao, children, largura =
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-titulo"
-        className={`max-h-[92svh] w-full overflow-y-auto rounded-t-lg border border-line bg-canvas shadow-2xl sm:rounded-lg ${largura}`}
+        className={`max-h-[92svh] w-full overflow-y-auto rounded-t-3xl border border-line bg-canvas shadow-2xl sm:rounded-3xl ${largura}`}
       >
         <div className="flex items-start justify-between gap-4 border-b border-line bg-paper px-5 py-4">
           <div>

@@ -274,7 +274,6 @@ export default function App() {
               setAno(novoAno)
               setMes(novoMes)
             }}
-            config={config}
             ocorrencias={ocorrencias}
             efetivas={efetivas}
             dirigentes={dirigentes}

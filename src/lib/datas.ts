@@ -5,6 +5,12 @@ export function chaveMes(ano: number, mes: number): string {
   return `${ano}-${mes + 1}`
 }
 
+/** Data de hoje no formato ISO (YYYY-MM-DD). */
+export function isoDeHoje(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function lerChaveMes(chave: string): { ano: number; mes: number } {
   const [ano, mes] = String(chave).split('-').map(Number)
   return { ano, mes: (mes || 1) - 1 }
