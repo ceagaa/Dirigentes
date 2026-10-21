@@ -23,10 +23,39 @@ dist-ssr
 *.sln
 *.sw?
 
-# Segredos locais
-.env
-.env.*
-!.env.example
+# Segredos locais específicos do Wrangler
+.dev.vars
+.wrangler/
 
 # Artefatos de teste do Playwright
 .playwright-mcp/
+
+# ==========================================
+# DevSecOps & Security Hardening
+# ==========================================
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# AI Prompts, Agents & Internal Documentation
+*.md
+!README.md
+.agents/
+.opencode/
+prompts/
+docs/
+
+# Database Schemas & Models
+*.sql
+/prisma/migrations/
+/db/schemas/
+
+# Exceção: as migrações do D1 do projeto precisam ser versionadas
+# (wrangler d1 migrations apply lê o diretório migrations/ após o clone)
+!migrations/*.sql
+!migrations/**/*.sql

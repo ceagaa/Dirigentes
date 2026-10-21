@@ -37,6 +37,10 @@ interface ResumoDesignacaoProps {
   dirigentes: Dirigente[]
   campos: Campo[]
   pronta: boolean
+  proximoNome: string
+  proximoPronto: boolean
+  aoAdiantar: () => void
+  aoVerProximo: () => void
   aoMontar: () => void
   aoVer: () => void
   aoCopiarLink: () => void
@@ -53,6 +57,10 @@ export default function ResumoDesignacao({
   dirigentes,
   campos,
   pronta,
+  proximoNome,
+  proximoPronto,
+  aoAdiantar,
+  aoVerProximo,
   aoMontar,
   aoVer,
   aoCopiarLink,
@@ -283,6 +291,26 @@ export default function ResumoDesignacao({
           </div>
         )}
       </section>
+
+      {!semCampos && !semDirigentes ? (
+        <section className="border-t border-line-soft pt-4">
+          {proximoPronto ? (
+            <button
+              type="button"
+              onClick={aoVerProximo}
+              className="flex items-center gap-1.5 px-1 text-left text-[13px] font-semibold text-petrol transition-opacity hover:opacity-80"
+            >
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+              Escala de {proximoNome} pronta →
+            </button>
+          ) : (
+            <Botao variante="fantasma" onClick={aoAdiantar}>
+              <CalendarDays className="size-4" />
+              Adiantar escala de {proximoNome}
+            </Botao>
+          )}
+        </section>
+      ) : null}
     </div>
   )
 }

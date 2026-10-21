@@ -1,7 +1,8 @@
 import type { Campo, ConfigEscala, Dirigente } from '../lib/dominio'
 import { useState } from 'react'
-import { Check, ChevronRight, Plus, Repeat, Settings, Trash } from 'lucide-react'
+import { Check, ChevronRight, Lock, Plus, Repeat, Settings, Trash } from 'lucide-react'
 import { DIAS_SEMANA, FREQUENCIAS, HORARIOS_PADRAO, infoDia } from '../lib/constants'
+import { definirPin, pinSalvo } from '../lib/api'
 import { Botao, Input, Modal, Rotulo, Select, Vazio } from './ui'
 
 type FormCampo = Partial<Campo> & {
@@ -59,6 +60,8 @@ export default function ConfigCampos({
 }: ConfigCamposProps) {
   const [form, setForm] = useState<FormCampo | null>(null)
   const [erro, setErro] = useState('')
+  const [pin, setPin] = useState(() => pinSalvo())
+  const [pinSalvoOk, setPinSalvoOk] = useState(false)
 
   const horarios = [...new Set([...HORARIOS_PADRAO, ...campos.map((c) => c.horario)])].sort()
   const ativos = dirigentes.filter((d) => d.ativo !== false && d.nome)
@@ -98,6 +101,13 @@ export default function ConfigCampos({
   function remover(id: string) {
     aoAlterarCampos(campos.filter((x) => x.id !== id))
     fechar()
+  }
+
+  function salvarPin() {
+    definirPin(pin.trim())
+    setPin(pin.trim())
+    setPinSalvoOk(true)
+    window.setTimeout(() => setPinSalvoOk(false), 2000)
   }
 
   const ordenados = [...campos].sort((a, b) => {
@@ -265,6 +275,47 @@ export default function ConfigCampos({
             Dias úteis
           </span>
         </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 flex items-center gap-2 px-1 font-display text-lg text-ink">
+          <Lock className="size-4 text-petrol" aria-hidden="true" />
+          Acesso
+        </h2>
+        <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-paper">
+          <Linha
+            rotulo="PIN de proteção"
+            descricao={
+              pin
+                ? 'PIN salvo neste aparelho. Enviado a cada pedido à API.'
+                : 'Se o servidor exigir APP_PIN, informe o PIN aqui.'
+            }
+            acao={
+              <Botao onClick={salvarPin}>
+                <Check className="size-4" />
+                {pinSalvoOk ? 'Salvo' : 'Salvar'}
+              </Botao>
+            }
+          >
+            <Input
+              id="cfg-pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              className="mt-1 max-w-44"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder="Sem PIN"
+              aria-describedby="cfg-pin-ajuda"
+            />
+            <p id="cfg-pin-ajuda" className="sr-only">
+              Guardado somente neste aparelho.
+            </p>
+          </Linha>
+        </div>
+        <p className="mt-2 px-1 text-[13px] text-muted">
+          Fica guardado só neste aparelho; deixe em branco se o servidor não usa PIN.
+        </p>
       </section>
 
       <Modal

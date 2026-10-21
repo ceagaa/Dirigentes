@@ -21,8 +21,8 @@ import TelaVer from './components/TelaVer'
 import { lerHashVer, linkDe, montarPayload } from './lib/compartilhamento'
 import { chaveMes, ocorrenciasDoMes, nomeMes } from './lib/datas'
 import { estadoInicial, registroDe } from './lib/estadoInicial'
-import { gerarEscala } from './lib/rodizio'
-import { carregarEstado, salvarEstado, supabaseAtivo } from './lib/supabase'
+import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
+import { carregarEstado, gerarEscalaRemota, salvarEstado } from './lib/api'
 
 type StatusId = 'carregando' | 'salvando' | 'sincronizado' | 'local' | 'erro'
 
@@ -75,6 +75,9 @@ export default function App() {
   const designados = ocorrencias.filter((o) => efetivas[o.key]).length
   const pronta = ocorrencias.length > 0 && designados === ocorrencias.length
 
+  const proximo = useMemo(() => proximoMes(ano, mes), [ano, mes])
+  const proximoPronto = registroDe(escalas, proximo.chave).geradoEm != null
+
   useEffect(() => {
     let vivo = true
     inicioSplash.current = Date.now()
@@ -82,7 +85,7 @@ export default function App() {
       if (!vivo) return
       setEstado(carregado)
       setPronto(true)
-      setStatus(origem === 'supabase' ? 'sincronizado' : 'local')
+      setStatus(origem === 'nuvem' ? 'sincronizado' : 'local')
     })
     return () => {
       vivo = false
@@ -115,7 +118,7 @@ export default function App() {
       setStatus('salvando')
       try {
         await salvarEstado(estado)
-        setStatus(supabaseAtivo ? 'sincronizado' : 'local')
+        setStatus('sincronizado')
       } catch {
         setStatus('erro')
       }
@@ -139,19 +142,38 @@ export default function App() {
 
   function gerar() {
     const manuais = manterManuais ? (registro.manuais ?? {}) : {}
-    const { auto } = gerarEscala({
-      dirigentes,
-      ocorrencias,
-      manuais,
-      semente: chave,
-      fixa: config.designacao_fixa === true,
-    })
-    alterarRegistro(chave, { auto, manuais, geradoEm: new Date().toISOString() })
+    const atualizado: Estado = {
+      ...estado,
+      escalas: { ...estado.escalas, [chave]: { ...registro, manuais } } as Estado['escalas'],
+    }
+    setEstado(gerarEscalaDoMes(atualizado, chave, { forcar: true }))
     setAviso(
       ocorrencias.length
         ? `Designação de ${nomeMes(mes)} de ${ano} gerada.`
         : 'Nenhum dia de campo neste mês.',
     )
+  }
+
+  /** Gera (ou tenta gerar) a escala do mês seguinte: Worker primeiro, local se offline. */
+  async function adiantarProximoMes() {
+    if (proximoPronto) {
+      setAviso(`Escala de ${nomeMes(proximo.mes)} já existe.`)
+      return
+    }
+    const resultado = await gerarEscalaRemota(proximo.chave)
+    if (resultado.ok) {
+      setEstado(resultado.estado)
+      setAviso(`Escala de ${nomeMes(proximo.mes)} de ${proximo.ano} gerada.`)
+      return
+    }
+    if (resultado.motivo === 'existe') {
+      const { estado: doServidor } = await carregarEstado()
+      setEstado(doServidor)
+      setAviso(`Escala de ${nomeMes(proximo.mes)} já existe no servidor.`)
+      return
+    }
+    setEstado(gerarEscalaDoMes(estado, proximo.chave))
+    setAviso(`Sem conexão: escala de ${nomeMes(proximo.mes)} gerada neste aparelho.`)
   }
 
   function alterarDesignacao(key: string, valor: string) {
@@ -279,6 +301,13 @@ export default function App() {
             dirigentes={dirigentes}
             campos={campos}
             pronta={pronta}
+            proximoNome={nomeMes(proximo.mes)}
+            proximoPronto={proximoPronto}
+            aoAdiantar={adiantarProximoMes}
+            aoVerProximo={() => {
+              setAno(proximo.ano)
+              setMes(proximo.mes)
+            }}
             aoMontar={() => setTela('montagem')}
             aoVer={exportar}
             aoCopiarLink={copiarLink}

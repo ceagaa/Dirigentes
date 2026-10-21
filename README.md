@@ -2,7 +2,7 @@
 
 Mini WebApp leve e responsivo para **designação mensal de dirigentes de campo**: cadastro de pessoas, dias de campo fixos, **rodízio automático por frequência/disponibilidade**, **pessoa fixa por dia**, ajuste manual linha a linha e exportação em **PDF fiel à programação, imagem, link de compartilhamento e texto para WhatsApp**.
 
-Sem login. Os dados são gravados no navegador e sincronizados, quando configurado, em **uma única tabela pública do Supabase**.
+Sem login. O app é um Worker da **Cloudflare** (Workers + Pages) que serve o frontend e uma API; os dados ficam no banco **D1** (SQLite) em um único registro, com cache local no navegador.
 
 ---
 
@@ -10,10 +10,14 @@ Sem login. Os dados são gravados no navegador e sincronizados, quando configura
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # gera /dist
+npm run dev      # frontend  http://localhost:5173
+npm run dev:api  # Worker + D1 local  http://127.0.0.1:8787 (terminal separado)
+npm run build    # typecheck + gera /dist
 npm run lint     # oxlint
+npm run typecheck
 ```
+
+Em dev, o Vite encaminha `/api` para o `wrangler dev` (porta 8787). Sem o Worker rodando, o app segue funcionando só com o cache local do navegador.
 
 ---
 
@@ -26,38 +30,42 @@ npm run lint     # oxlint
 
 ---
 
-## Conectar ao Supabase (opcional)
+## Hospedagem: Cloudflare Workers + D1
 
-1. Crie um projeto em [supabase.com](https://supabase.com).
-2. No **SQL Editor**, execute o script [`supabase/schema.sql`](supabase/schema.sql):
+1. **Banco**: crie o banco D1 (já existe o `dirigentes`) e aplique a migração:
+   ```bash
+   npm run db:migrate         # remoto (usa seu login/token do Wrangler)
+   npm run db:migrate:local   # banco local (Miniflare) para testes
+   ```
+2. **Deploy**: 
+   ```bash
+   npx wrangler login         # uma vez, abre o navegador
+   npm run deploy             # build + publica o Worker (site + API)
+   ```
+3. **Deploy automático**: publique este repositório no GitHub e, no painel do Cloudflare, importe-o em **Workers & Pages → Create → Import repository** (Workers Builds). Build command: `npm run build`. Todo `git push` publica sozinho; PRs geram prévia.
 
-```sql
-create table if not exists public.escala_dirigentes (
-  id text primary key default 'default_config',
-  dirigentes jsonb default '[]'::jsonb,
-  config_campos jsonb default '[]'::jsonb,
-  escalas jsonb default '{}'::jsonb,
-  updated_at timestamp with time zone default timezone('utc'::text, now())
-);
+### API e geração agendada
 
-alter table public.escala_dirigentes enable row level security;
-create policy "Acesso Publico Leitura"  on public.escala_dirigentes for select using (true);
-create policy "Acesso Publico Escrita"  on public.escala_dirigentes for insert with check (true);
-create policy "Acesso Publico Atualizacao" on public.escala_dirigentes for update using (true);
-```
+| Rota | O que faz |
+| --- | --- |
+| `GET /api/estado` | Devolve o estado completo (seed inicial se vazio) |
+| `PUT /api/estado` | Grava o estado inteiro (última gravação vence) |
+| `POST /api/escala/gerar` | Gera a escala do mês do corpo `{ "chave": "2026-11" }` (409 se já existir) |
+| cron `0 3 * * *` | **Dia 20, 00:00 (BRT)**: gera automaticamente a escala do mês seguinte — idempotente, preserva ajustes manuais |
 
-3. Copie `.env.example` para `.env` e preencha:
+No app, a tela **Designação** mostra *“Adiantar escala de {mês}”* (mesmo efeito do cron) e, quando o próximo mês já foi gerado, o atalho *“Escala de {mês} pronta →”*.
+
+### PIN opcional (APP_PIN)
+
+Para exigir um PIN em todas as rotas da API:
 
 ```bash
-VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-chave-anon-publica
+npx wrangler secret put APP_PIN   # defina um valor
 ```
 
-4. Reinicie o `npm run dev`.
+No app: **Configurações → Acesso → PIN de proteção** (guardado só no aparelho; enviado no header `x-app-pin`). Sem o secret, o app funciona sem PIN.
 
-Sem `.env` o app funciona normalmente usando o armazenamento local do navegador (o indicador do topo mostra *"Salvo neste aparelho"*). Com `.env` preenchido, o estado é salvo na tabela e o topo passa a mostrar *"Sincronizado"*.
-
-> Estrutura do registro: `id = default_config`, `dirigentes` (array), `config_campos` (array, com `fixo` opcional) e `escalas` (mapa `{ "2026-10": { auto, manuais, geradoEm }, "_config": { titulo, congregacao, designacao_fixa, frequencia_padrao } }`).
+> Estrutura do registro (`estado` no D1): `id = default_config`, `dirigentes` (JSON), `config_campos` (JSON, com `fixo` opcional) e `escalas` (JSON `{ "2026-10": { auto, manuais, geradoEm }, "_config": { titulo, congregacao, designacao_fixa, frequencia_padrao } }`).
 
 ---
 
@@ -123,33 +131,37 @@ As cores são aplicadas como hex puro (sem `oklch`) justamente para o `html2canv
 
 ```
 src/
-  App.jsx                    splash, telas, nav inferior, sincronização e avisos
+  App.tsx                    splash, telas, nav inferior, sincronização e avisos
+  server.ts                  Worker Hono: API + cron do dia 20
   components/
-    Splash.jsx               abertura “Dirigentes”
-    BottomNav.jsx            barra inferior (Designação, Dirigentes, Configurações)
-    ResumoDesignacao.jsx     tela inicial do mês
-    TabelaEscala.jsx         montagem da designação
-    EscalaCard.jsx           cartão fiel à planilha (editável ou somente leitura)
-    CadastroDirigentes.jsx   fichas e disponibilidade
-    ConfigCampos.jsx         cabeçalho, rodízio e dias de campo
-    ExportModal.jsx          prévia, PDF/PNG, link e texto
-    TelaVer.jsx              visualização do link compartilhado
-    ui.jsx                   botões, campos, chips e modal acessível
+    Splash.tsx               abertura “Dirigentes”
+    BottomNav.tsx            barra inferior flutuante (Designação, Dirigentes, Configurações)
+    ResumoDesignacao.tsx     tela inicial do mês (+ adiantar próximo mês)
+    TabelaEscala.tsx         montagem da designação
+    EscalaCard.tsx           cartão fiel à planilha (editável ou somente leitura)
+    CadastroDirigentes.tsx   fichas e disponibilidade
+    ConfigCampos.tsx         cabeçalho, rodízio, dias de campo e PIN
+    ExportModal.tsx          prévia, PDF/PNG, link e texto
+    TelaVer.tsx              visualização do link compartilhado
+    ui.tsx                   botões pílula, campos, chips e modal acessível
   lib/
-    rodizio.js               algoritmo de designação (automática e fixa)
-    compartilhamento.js      codificação/decodificação do link
-    export.js                html2canvas, jspdf, share e texto
-    supabase.js              carga/gravação com fallback local
-    estadoInicial.js         estado padrão e normalização
-    constants.js, datas.js   dias, frequências, cores e datas
-supabase/schema.sql          script da tabela pública
+    dominio.ts               tipos de domínio (fonte única)
+    rodizio.ts               algoritmo de designação (automática e fixa)
+    gerador.ts               geração do mês compartilhada cliente/servidor
+    api.ts                   carga/gravação via /api com fallback local
+    compartilhamento.ts      codificação/decodificação do link
+    export.ts                html2canvas, jspdf, share e texto
+    estadoInicial.ts         estado padrão e normalização
+    constants.ts, datas.ts   dias, frequências, cores e datas
+migrations/0001_init.sql     tabela do D1
+wrangler.jsonc               Worker: assets, D1 e cron
 ```
 
 ---
 
 ## Observações
 
-- **Sem autenticação**: qualquer pessoa com a URL pública e a chave anon pode ler/escrever a tabela. Não cadastre dados sensíveis e revise as políticas do RLS antes de divulgar o endereço.
+- **Sem autenticação de usuário**: quem tiver a URL acessa o app. A API pode ser protegida pelo `APP_PIN` opcional (ver acima).
 - Conflitos entre aparelhos são resolvidos por **última gravação** (o registro mais novo substitui o anterior).
-- O app é uma SPA estática: `npm run build` gera o `dist/` que pode ir para Vercel, Netlify, GitHub Pages ou qualquer host estático (lembrando de declarar as variáveis `VITE_*` no provedor).
+- O Worker serve o `dist/` (SPA com fallback) e a API no mesmo domínio; deploy e previews ficam por conta do Workers Builds (GitHub).
 - O link de compartilhamento carrega a designação dentro da própria URL (sem conta e sem servidor); ele mostra o estado do momento em que foi copiado.

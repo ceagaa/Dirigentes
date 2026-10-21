@@ -77,10 +77,10 @@ export interface PayloadCompartilhado {
 }
 
 /** Origem de onde o estado veio ao carregar. */
-export type OrigemEstado = 'supabase' | 'local' | 'padrao'
+export type OrigemEstado = 'nuvem' | 'local' | 'padrao'
 
 /** Onde o estado foi persistido na última gravação. */
-export type DestinoEstado = 'supabase' | 'local'
+export type DestinoEstado = 'nuvem' | 'local'
 
 /** Abas inferiores do app. */
 export type AbaNav = 'designacao' | 'dirigentes' | 'config'
