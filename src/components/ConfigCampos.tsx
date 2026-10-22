@@ -586,6 +586,8 @@ export default function ConfigCampos({
                 value={form.local}
                 onChange={(e) => setForm({ ...form, local: e.target.value })}
                 placeholder="Ex.: Terminal Rodoviário"
+                autoCapitalize="words"
+                enterKeyHint="done"
               />
             </div>
 
@@ -650,6 +652,8 @@ export default function ConfigCampos({
               value={config.congregacao}
               onChange={(e) => aoAlterarConfig({ congregacao: e.target.value })}
               placeholder="Ex.: São João do Paraíso"
+              autoCapitalize="words"
+              enterKeyHint="next"
               autoFocus
             />
           </div>
@@ -660,6 +664,7 @@ export default function ConfigCampos({
               value={config.titulo}
               onChange={(e) => aoAlterarConfig({ titulo: e.target.value })}
               placeholder="Ex.: Designação de Campo"
+              enterKeyHint="done"
             />
           </div>
           <Botao variante="primario" className="w-full" onClick={() => setEditandoCong(false)}>

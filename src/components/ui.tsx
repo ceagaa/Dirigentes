@@ -38,7 +38,7 @@ export function Rotulo({ htmlFor, children }: RotuloProps) {
 }
 
 const BASE_CAMPO =
-  'w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-teal'
+  'w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-base text-ink placeholder:text-muted focus:border-teal'
 
 export function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`${BASE_CAMPO} ${className}`} {...props} />
@@ -195,6 +195,13 @@ type ModalProps = {
 export function Modal({ aberto, aoFechar, titulo, descricao, children, largura = 'max-w-2xl' }: ModalProps) {
   const painel = useRef<HTMLDivElement>(null)
   const anterior = useRef<HTMLElement | null>(null)
+  // Callback em ref: o efeito do modal só depende de `aberto`, senão ele reexecuta
+  // a cada tecla digitada e devolve o foco ao gatilho (derruba o teclado no celular).
+  const aoFecharRef = useRef(aoFechar)
+
+  useEffect(() => {
+    aoFecharRef.current = aoFechar
+  })
 
   useEffect(() => {
     if (!aberto) return undefined
@@ -204,7 +211,7 @@ export function Modal({ aberto, aoFechar, titulo, descricao, children, largura =
     alvo?.focus()
 
     const aoTeclar = (evento: KeyboardEvent) => {
-      if (evento.key === 'Escape') aoFechar()
+      if (evento.key === 'Escape') aoFecharRef.current()
       if (evento.key !== 'Tab' || !painel.current) return
 
       const focaveis = painel.current.querySelectorAll<HTMLElement>(
@@ -232,7 +239,7 @@ export function Modal({ aberto, aoFechar, titulo, descricao, children, largura =
       document.body.style.overflow = overflow
       anterior.current?.focus?.()
     }
-  }, [aberto, aoFechar])
+  }, [aberto])
 
   if (!aberto) return null
 

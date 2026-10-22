@@ -254,6 +254,8 @@ export default function CadastroDirigentes({
               className="h-11 bg-card pl-11 shadow-sm focus:bg-white"
               placeholder="Buscar por nome ou disponibilidade..."
               aria-label="Buscar dirigentes"
+              autoComplete="off"
+              enterKeyHint="search"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
             />
@@ -610,6 +612,10 @@ export default function CadastroDirigentes({
                 value={form.nome}
                 onChange={(e) => alternar('nome', e.target.value)}
                 placeholder="Ex.: Carlos Andrade"
+                autoComplete="name"
+                autoCapitalize="words"
+                spellCheck={false}
+                enterKeyHint="next"
                 autoFocus
               />
             </div>
@@ -619,9 +625,12 @@ export default function CadastroDirigentes({
               <Input
                 id="dir-telefone"
                 type="tel"
+                inputMode="tel"
                 value={form.telefone}
                 onChange={(e) => alternar('telefone', e.target.value)}
                 placeholder="(00) 00000-0000"
+                autoComplete="tel"
+                enterKeyHint="done"
               />
             </div>
 

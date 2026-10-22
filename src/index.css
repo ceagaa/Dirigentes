@@ -44,6 +44,15 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Comportamento de app: elimina o zoom de toque duplo (pinch continua liberado). */
+    touch-action: manipulation;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
   }
 
   body {
