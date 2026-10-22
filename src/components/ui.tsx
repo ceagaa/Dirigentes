@@ -2,12 +2,12 @@ import type { ReactNode } from 'react'
 import type { VarianteBotao } from '../lib/dominio'
 import { useEffect, useRef } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { ChevronDown, Minus, Plus } from 'lucide-react'
 
 const VARIA: Record<VarianteBotao, string> = {
-  primario: 'bg-petrol text-white hover:bg-petrol-dark border border-petrol hover:border-petrol-dark',
-  vinho: 'bg-wine text-white hover:bg-wine-dark border border-wine hover:border-wine-dark',
-  secundario:
-    'bg-paper text-ink border border-line hover:border-petrol hover:text-petrol',
+  primario: 'bg-teal text-white hover:bg-teal-deep border border-teal hover:border-teal-deep',
+  vinho: 'bg-crimson text-white hover:bg-[#7d2021] border border-crimson hover:border-[#7d2021]',
+  secundario: 'bg-paper text-ink border border-line hover:border-teal hover:text-teal',
   fantasma: 'border border-transparent text-muted hover:text-ink hover:bg-line-soft',
 }
 
@@ -19,7 +19,7 @@ export function Botao({ variante = 'secundario', className = '', children, ...pr
   return (
     <button
       type="button"
-      className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIA[variante]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${VARIA[variante]} ${className}`}
       {...props}
     >
       {children}
@@ -38,7 +38,7 @@ export function Rotulo({ htmlFor, children }: RotuloProps) {
 }
 
 const BASE_CAMPO =
-  'w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-petrol'
+  'w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-teal'
 
 export function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`${BASE_CAMPO} ${className}`} {...props} />
@@ -46,9 +46,15 @@ export function Input({ className = '', ...props }: React.InputHTMLAttributes<HT
 
 export function Select({ className = '', children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select className={`${BASE_CAMPO} appearance-none pr-8 ${className}`} {...props}>
-      {children}
-    </select>
+    <span className="relative block">
+      <select className={`${BASE_CAMPO} appearance-none pr-8 ${className}`} {...props}>
+        {children}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted"
+        aria-hidden="true"
+      />
+    </span>
   )
 }
 
@@ -63,13 +69,101 @@ export function Chip({ ativo, children, ...props }: ChipProps) {
       aria-pressed={ativo}
       className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors ${
         ativo
-          ? 'border-petrol bg-petrol text-white'
-          : 'border-line bg-paper text-muted hover:border-petrol hover:text-petrol'
+          ? 'border-teal bg-teal text-white'
+          : 'border-line bg-paper text-muted hover:border-teal hover:text-teal'
       }`}
       {...props}
     >
       {children}
     </button>
+  )
+}
+
+/** Sobrelinha curta em caixa alta (label-uppercase da referência). */
+export function Kicker({ className = '', children }: { className?: string; children: ReactNode }) {
+  return (
+    <span
+      className={`text-[11px] font-bold uppercase tracking-[0.08em] ${className}`}
+    >
+      {children}
+    </span>
+  )
+}
+
+type ToggleProps = {
+  checked: boolean
+  aoMudar: (valor: boolean) => void
+  rotulo?: string
+  className?: string
+  disabled?: boolean
+}
+
+/** Interruptor acessível (role=switch) no formato da referência: 44×24. */
+export function Toggle({ checked, aoMudar, rotulo, className = '', disabled }: ToggleProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={rotulo}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
+      onClick={() => !disabled && aoMudar(!checked)}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+        disabled
+          ? 'cursor-not-allowed bg-line'
+          : `cursor-pointer ${checked ? 'bg-teal' : 'bg-line'}`
+      } ${className}`}
+    >
+      <span
+        className={`absolute top-0.5 block size-5 rounded-full bg-paper shadow-sm transition-transform duration-200 ${
+          checked ? 'translate-x-5' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  )
+}
+
+type StepperProps = {
+  valor: number
+  aoMudar: (valor: number) => void
+  min?: number
+  max?: number
+  sufixo?: string
+  rotulo: string
+}
+
+/** Seletor numérico −/＋ (Limite mensal da referência). */
+export function Stepper({ valor, aoMudar, min = 0, max = 30, sufixo = 'x', rotulo }: StepperProps) {
+  return (
+    <div className="flex shrink-0 items-center gap-1 rounded-xl bg-canvas p-1">
+      <button
+        type="button"
+        aria-label={`Diminuir ${rotulo}`}
+        onClick={() => aoMudar(Math.max(min, valor - 1))}
+        className="flex size-8 items-center justify-center rounded-lg bg-paper text-ink shadow-sm transition-transform active:scale-95"
+      >
+        <Minus className="size-4" />
+      </button>
+      <span className="w-10 text-center text-sm font-bold text-teal">
+        {valor === 0 && min === 0 ? (
+          <span title="Sem limite">∞</span>
+        ) : (
+          <>
+            {valor}
+            <span className="text-[11px] font-normal text-muted">{sufixo}</span>
+          </>
+        )}
+      </span>
+      <button
+        type="button"
+        aria-label={`Aumentar ${rotulo}`}
+        onClick={() => aoMudar(Math.min(max, valor + 1))}
+        className="flex size-8 items-center justify-center rounded-lg bg-paper text-ink shadow-sm transition-transform active:scale-95"
+      >
+        <Plus className="size-4" />
+      </button>
+    </div>
   )
 }
 

@@ -67,16 +67,16 @@ export default function TabelaEscala({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border border-line bg-paper px-4 py-3">
         <div>
-          <h1 className="font-display text-lg leading-tight text-ink">Montar designação</h1>
+          <h1 className="font-display text-lg leading-tight text-ink">Montar designaÃ§Ã£o</h1>
           <p className="text-[13px] text-muted">
-            {MESES[mes]} de {ano} · {ocorrencias.length} saída
+            {MESES[mes]} de {ano} Â· {ocorrencias.length} saÃ­da
             {ocorrencias.length === 1 ? '' : 's'} de campo
           </p>
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
           <div>
-            <Rotulo htmlFor="escala-mes">Mês</Rotulo>
+            <Rotulo htmlFor="escala-mes">MÃªs</Rotulo>
             <Select
               id="escala-mes"
               className="w-36"
@@ -107,13 +107,13 @@ export default function TabelaEscala({
           </div>
           <div className="flex gap-1">
             <Botao
-              aria-label="Mês anterior"
+              aria-label="MÃªs anterior"
               onClick={() => (mes === 0 ? aoMudarData(ano - 1, 11) : aoMudarData(ano, mes - 1))}
             >
               <ChevronLeft className="size-4" />
             </Botao>
             <Botao
-              aria-label="Próximo mês"
+              aria-label="PrÃ³ximo mÃªs"
               onClick={() => (mes === 11 ? aoMudarData(ano + 1, 0) : aoMudarData(ano, mes + 1))}
             >
               <ChevronRight className="size-4" />
@@ -132,9 +132,9 @@ export default function TabelaEscala({
             <strong className="text-ink">{designados}</strong> designado
             {designados === 1 ? '' : 's'}
           </span>
-          <span className={semDesignacao ? 'font-semibold text-wine' : ''}>
-            <strong className={semDesignacao ? 'text-wine' : 'text-ink'}>{semDesignacao}</strong>{' '}
-            sem designação
+          <span className={semDesignacao ? 'font-semibold text-crimson' : ''}>
+            <strong className={semDesignacao ? 'text-crimson' : 'text-ink'}>{semDesignacao}</strong>{' '}
+            sem designaÃ§Ã£o
           </span>
           {totalManuais ? (
             <span>
@@ -174,7 +174,7 @@ export default function TabelaEscala({
           onClick={aoConcluir}
         >
           <CheckCircle2 className="size-4" />
-          {pronta ? 'Designação pronta — ver' : 'Designação pronta'}
+          {pronta ? 'DesignaÃ§Ã£o pronta â€” ver' : 'DesignaÃ§Ã£o pronta'}
         </Botao>
       </div>
 
@@ -182,8 +182,8 @@ export default function TabelaEscala({
         <div className="border border-dashed border-line bg-paper px-6 py-10 text-center">
           <p className="mx-auto max-w-md text-sm text-muted">
             {semCampos
-              ? 'A escala precisa de dias de campo. Defina dia da semana, horário e ponto de encontro para começar.'
-              : 'Cadastre pelo menos um dirigente ativo para que o rodízio encontre alguém designado.'}
+              ? 'A escala precisa de dias de campo. Defina dia da semana, horÃ¡rio e ponto de encontro para comeÃ§ar.'
+              : 'Cadastre pelo menos um dirigente ativo para que o rodÃ­zio encontre alguÃ©m designado.'}
           </p>
           <Botao
             variante="primario"
@@ -196,7 +196,7 @@ export default function TabelaEscala({
       ) : (
         <div>
           <p className="mb-2 text-[13px] text-muted sm:hidden">
-            Deslize para a lateral para ver a escala inteira →
+            Deslize para a lateral para ver a escala inteira â†’
           </p>
           <div className="scroll-hint overflow-x-auto pb-2">
             <EscalaCard
@@ -215,15 +215,15 @@ export default function TabelaEscala({
       {ocorrencias.length && !semDesignacao ? (
         <p className="text-[13px] text-muted">
           Todos os dias com dirigente. Toque em{' '}
-          <strong className="text-ink">Designação pronta</strong> para liberar a prévia, o PDF e o
+          <strong className="text-ink">DesignaÃ§Ã£o pronta</strong> para liberar a prÃ©via, o PDF e o
           link de compartilhamento.
         </p>
       ) : null}
 
       {ocorrencias.length && semDesignacao ? (
         <p className="text-[13px] text-muted">
-          Troque qualquer nome direto na tabela — a linha marcada com o ponto ficou definida à mão
-          e não muda na próxima geração.
+          Troque qualquer nome direto na tabela â€” a linha marcada com o ponto ficou definida Ã  mÃ£o
+          e nÃ£o muda na prÃ³xima geraÃ§Ã£o.
         </p>
       ) : null}
     </div>

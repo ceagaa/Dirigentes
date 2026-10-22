@@ -1,14 +1,7 @@
 import type { AbaNav, Estado, RegistroMes, Tela } from './lib/dominio'
-import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  CircleAlert,
-  CloudCheck,
-  CloudOff,
-  Loader2,
-  MapPin,
-  RefreshCw,
-} from 'lucide-react'
+import AppHeader from './components/AppHeader'
+import type { Notificacao } from './components/SinoNotificacoes'
 import BottomNav from './components/BottomNav'
 import CadastroDirigentes from './components/CadastroDirigentes'
 import ConfigCampos from './components/ConfigCampos'
@@ -25,21 +18,6 @@ import { gerarEscalaDoMes, proximoMes } from './lib/gerador'
 import { carregarEstado, gerarEscalaRemota, salvarEstado } from './lib/api'
 
 type StatusId = 'carregando' | 'salvando' | 'sincronizado' | 'local' | 'erro'
-
-interface StatusInfo {
-  texto: string
-  Icone: LucideIcon
-  gira?: boolean
-  estilo: string
-}
-
-const STATUS: Record<StatusId, StatusInfo> = {
-  carregando: { texto: 'Carregando…', Icone: Loader2, gira: true, estilo: 'bg-canvas text-muted' },
-  salvando: { texto: 'Salvando…', Icone: RefreshCw, gira: true, estilo: 'bg-canvas text-muted' },
-  sincronizado: { texto: 'Sincronizado', Icone: CloudCheck, estilo: 'bg-petrol-soft text-petrol' },
-  local: { texto: 'Salvo neste aparelho', Icone: CloudOff, estilo: 'bg-canvas text-muted' },
-  erro: { texto: 'Sem sincronização', Icone: CircleAlert, estilo: 'bg-wine-soft text-wine' },
-}
 
 export default function App() {
   const [estado, setEstado] = useState<Estado>(estadoInicial)
@@ -77,6 +55,87 @@ export default function App() {
 
   const proximo = useMemo(() => proximoMes(ano, mes), [ano, mes])
   const proximoPronto = registroDe(escalas, proximo.chave).geradoEm != null
+
+  async function tentarSincronizar() {
+    setStatus('salvando')
+    try {
+      await salvarEstado(estado)
+      setStatus('sincronizado')
+    } catch {
+      setStatus('erro')
+    }
+  }
+
+  function montarNotificacoes(): Notificacao[] {
+    const lista: Notificacao[] = []
+    const pendentes = ocorrencias.length - designados
+
+    if (status === 'erro') {
+      lista.push({
+        id: 'sync-erro',
+        titulo: 'Sem sincronização',
+        detalhe: 'Toque para tentar gravar na nuvem',
+        tom: 'alerta',
+        aoClicar: tentarSincronizar,
+      })
+    } else if (status === 'local') {
+      lista.push({
+        id: 'sync-local',
+        titulo: 'Salvo neste aparelho',
+        detalhe: 'Sem conexão com a nuvem no momento',
+        tom: 'neutro',
+      })
+    }
+
+    if (!dirigentes.length) {
+      lista.push({
+        id: 'sem-dirigentes',
+        titulo: 'Nenhum dirigente cadastrado',
+        detalhe: 'Cadastre a equipe para gerar a escala',
+        tom: 'alerta',
+        aoClicar: () => setTela('dirigentes'),
+      })
+    } else if (!campos.length) {
+      lista.push({
+        id: 'sem-campos',
+        titulo: 'Sem dias de campo',
+        detalhe: 'Configure dia, horário e ponto de encontro',
+        tom: 'alerta',
+        aoClicar: () => setTela('config'),
+      })
+    } else if (ocorrencias.length && pendentes > 0) {
+      lista.push({
+        id: `pend-${chave}`,
+        titulo: `${pendentes} de ${ocorrencias.length} dias sem designação`,
+        detalhe: `Monte a escala de ${nomeMes(mes)}`,
+        tom: 'alerta',
+        aoClicar: () => setTela('montagem'),
+      })
+    } else if (pronta) {
+      lista.push({
+        id: `pronta-${chave}`,
+        titulo: `Designação de ${nomeMes(mes)} pronta`,
+        detalhe: 'Todos os dias com dirigente',
+        tom: 'sucesso',
+        aoClicar: () => setTela('resumo'),
+      })
+    }
+
+    if (proximoPronto) {
+      lista.push({
+        id: `prox-${proximo.chave}`,
+        titulo: `Escala de ${nomeMes(proximo.mes)} pronta`,
+        detalhe: 'Abra para conferir o próximo mês',
+        tom: 'sucesso',
+        aoClicar: () => {
+          setAno(proximo.ano)
+          setMes(proximo.mes)
+        },
+      })
+    }
+
+    return lista
+  }
 
   useEffect(() => {
     let vivo = true
@@ -233,7 +292,14 @@ export default function App() {
   }
 
   const abaNav: AbaNav = tela === 'montagem' ? 'designacao' : (tela as AbaNav)
-  const info = STATUS[status]
+  const tituloHeader =
+    tela === 'montagem'
+      ? 'Montar designação'
+      : tela === 'dirigentes'
+        ? 'Dirigentes'
+        : tela === 'config'
+          ? 'Configurações'
+          : 'Início'
 
   if (payloadVer) {
     return (
@@ -256,38 +322,13 @@ export default function App() {
     <div className="min-h-svh">
       {splash ? <Splash congregacao={config.congregacao} saindo={splash === 'saindo'} /> : null}
 
-      <header className="sticky top-0 z-40 border-b border-line bg-paper">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5">
-          <div className="flex items-center gap-2.5">
-            <span
-              className="flex size-8 shrink-0 items-center justify-center bg-petrol text-white"
-              aria-hidden="true"
-            >
-              <MapPin className="size-4.5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate font-display text-[15px] font-bold leading-tight text-ink">
-                Dirigentes
-              </p>
-              <p className="truncate text-[11px] text-muted">{config.congregacao}</p>
-            </div>
-          </div>
+      <AppHeader
+        titulo={tituloHeader}
+        notificacoes={montarNotificacoes()}
+        aoVoltar={tela === 'montagem' ? () => setTela('resumo') : undefined}
+      />
 
-          <p
-            className={`flex shrink-0 items-center gap-1.5 border border-line px-2 py-1 text-[11px] font-semibold ${info.estilo}`}
-            role="status"
-            title={info.texto}
-          >
-            <info.Icone
-              className={`size-3.5 ${info.gira ? 'animate-spin' : ''}`}
-              aria-hidden="true"
-            />
-            <span className="sr-only sm:not-sr-only">{info.texto}</span>
-          </p>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-6xl px-4 py-5 pb-28">
+      <main className="mx-auto w-full max-w-[640px] px-4 py-5 pb-28">
         {tela === 'resumo' ? (
           <ResumoDesignacao
             ano={ano}
@@ -351,7 +392,11 @@ export default function App() {
             dirigentes={dirigentes}
             campos={campos}
             frequenciaPadrao={config.frequencia_padrao}
+            ano={ano}
+            mes={mes}
+            efetivas={efetivas}
             aoAlterar={(lista) => atualizar((e) => ({ ...e, dirigentes: lista }))}
+            aoIrParaConfig={() => setTela('config')}
           />
         ) : null}
 
@@ -360,6 +405,7 @@ export default function App() {
             config={config}
             campos={campos}
             dirigentes={dirigentes}
+            sincronizado={status === 'sincronizado'}
             aoAlterarConfig={(patch) =>
               atualizar((e) => ({
                 ...e,
@@ -367,6 +413,8 @@ export default function App() {
               }))
             }
             aoAlterarCampos={(lista) => atualizar((e) => ({ ...e, config_campos: lista }))}
+            aoExportar={exportar}
+            aoCopiarLink={copiarLink}
           />
         ) : null}
       </main>

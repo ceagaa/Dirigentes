@@ -29,6 +29,12 @@ export interface ConfigEscala {
   congregacao: string
   designacao_fixa: boolean
   frequencia_padrao: FrequenciaId | string
+  /** Regra: nunca designar a mesma pessoa em dias seguidos. */
+  evitar_consecutivos: boolean
+  /** Regra: equilibrar quem sai em sábado/domingo. */
+  equilibrar_fds: boolean
+  /** Teto de designações por dirigente no mês (0 = sem limite; aplicação suave). */
+  limite_mensal: number
 }
 
 /** `MapaDesignacoes` cobre os registros de `escalas` (também guarda `_config`). */

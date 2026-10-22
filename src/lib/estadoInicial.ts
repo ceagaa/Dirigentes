@@ -91,6 +91,9 @@ export function estadoInicial(): Estado {
         congregacao: CONGREGACAO_PADRAO,
         designacao_fixa: false,
         frequencia_padrao: 'quinzenal',
+        evitar_consecutivos: true,
+        equilibrar_fds: true,
+        limite_mensal: 3,
       },
     },
   }
@@ -123,6 +126,12 @@ export function normalizarEstado(bruto: unknown): Estado {
   const dados = bruto as BrutoEstado
   const config = dados.escalas?._config ?? ({} as Partial<Escalas['_config']>)
 
+  const limiteBruto = config.limite_mensal
+  const limiteMensal =
+    typeof limiteBruto === 'number' && Number.isFinite(limiteBruto) && limiteBruto >= 0
+      ? Math.floor(limiteBruto)
+      : 3
+
   const normalizarCampos = (lista: Campo[]): Campo[] =>
     lista.map((c) => ({
       ...c,
@@ -142,6 +151,9 @@ export function normalizarEstado(bruto: unknown): Estado {
         congregacao: config.congregacao || CONGREGACAO_PADRAO,
         designacao_fixa: config.designacao_fixa === true,
         frequencia_padrao: frequenciaValida(config.frequencia_padrao),
+        evitar_consecutivos: config.evitar_consecutivos !== false,
+        equilibrar_fds: config.equilibrar_fds !== false,
+        limite_mensal: limiteMensal,
       },
     },
   }

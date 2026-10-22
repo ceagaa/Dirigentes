@@ -1,7 +1,10 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Paleta da escala (hex puro para fidelidade no html2canvas) */
+  /*
+   * Paleta da escala impressa (hex puro para fidelidade no html2canvas).
+   * Não usar em componentes de UI — viva em lib/constants (CORES_PLANILHA).
+   */
   --color-petrol: #045a6c;
   --color-petrol-dark: #034250;
   --color-petrol-soft: #f9fbfd;
@@ -9,16 +12,33 @@
   --color-wine-dark: #5c001a;
   --color-wine-soft: #fff3f3;
 
-  /* Paleta da aplicação */
-  --color-ink: #10262b;
-  --color-muted: #5b7176;
-  --color-line: #d8e1e3;
-  --color-line-soft: #e9eff0;
-  --color-canvas: #eef2f3;
+  /* Paleta do app — Serene Rostering System (DESIGN.md) */
+  --color-teal: #0d5c68;
+  --color-teal-deep: #073b43;
+  --color-teal-light: #148091;
+  --color-teal-tint: #e8f4f6;
+  --color-surface: #f4f6f8;
+  --color-card: #ffffff;
+
+  --color-ink: #11262b;
+  --color-ink-soft: #4a6369;
+  --color-muted: #4a6369;
+  --color-faint: #7a9298;
+
+  --color-line: #e2e8ea;
+  --color-line-soft: #edf1f3;
+  --color-canvas: #f4f6f8;
   --color-paper: #ffffff;
 
-  --font-display: Georgia, 'Times New Roman', Times, serif;
-  --font-sans: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --color-success: #0d825e;
+  --color-success-bg: #ecfdf5;
+  --color-success-line: #a7f3d0;
+  --color-crimson: #9e2a2b;
+  --color-crimson-bg: #fdf2f2;
+  --color-crimson-line: #f5d4d4;
+
+  --font-display: 'Plus Jakarta Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
 @layer base {
@@ -28,13 +48,14 @@
 
   body {
     margin: 0;
-    background: var(--color-canvas);
+    background: var(--color-surface);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 15px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
   }
 
   #root {
@@ -54,7 +75,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-petrol);
+    outline: 2px solid var(--color-teal-light);
     outline-offset: 2px;
     border-radius: 3px;
   }
@@ -63,6 +84,15 @@
 @utility scroll-hint {
   scrollbar-width: thin;
   scrollbar-color: var(--color-line) transparent;
+}
+
+/*
+ * Cartão da escala: fiel à aba SAÍDA DE CAMPO da planilha.
+ * Mantém as fontes do sistema e as cores de CORES_PLANILHA,
+ * independentemente do restante do app.
+ */
+.escala-card {
+  font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /*

@@ -12,6 +12,37 @@ const GAP_DIAS: Record<string, number> = {
   bimestral: 50,
 }
 
+/** Regras opcionais do rodízio (Configurações → Regras do Rodízio). */
+export interface RegrasRodizio {
+  /** Nunca designar a mesma pessoa em dias seguidos. */
+  evitarConsecutivos?: boolean
+  /** Equilibrar quem sai em sábado/domingo. */
+  equilibrarFds?: boolean
+  /** Teto de designações por pessoa no mês (0 = sem limite). Suave: relaxa se travar. */
+  limiteMensal?: number
+}
+
+interface RegrasNormalizadas {
+  evitarConsecutivos: boolean
+  equilibrarFds: boolean
+  limiteMensal: number
+}
+
+function normalizarRegras(regras: RegrasRodizio = {}): RegrasNormalizadas {
+  const limite = regras.limiteMensal
+  return {
+    evitarConsecutivos: regras.evitarConsecutivos !== false,
+    equilibrarFds: regras.equilibrarFds !== false,
+    limiteMensal: typeof limite === 'number' && Number.isFinite(limite) && limite >= 0
+      ? Math.floor(limite)
+      : 3,
+  }
+}
+
+function ehFimDeSemana(diaSemana: number): boolean {
+  return diaSemana === 0 || diaSemana === 6
+}
+
 interface Estatistica {
   id: string
   nome: string
@@ -21,6 +52,7 @@ interface Estatistica {
   capacidade: number
   restantes: number
   total: number
+  fds: number
   ultimoTs: number
 }
 
@@ -56,6 +88,7 @@ function preparar(dirigentes: Dirigente[], ocorrencias: Ocorrencia[]): Estatisti
         capacidade,
         restantes: capacidade,
         total: 0,
+        fds: 0,
         ultimoTs: 0,
       }
     })
@@ -69,17 +102,24 @@ interface ContextoEscolha {
   chave: string
   semente: string
   dataTs: number
+  ehFds: boolean
+  regras: RegrasNormalizadas
   ignorarCapacidade: boolean
   ignorarGap: boolean
+  ignorarConsecutivo: boolean
+  ignorarLimite: boolean
 }
 
-function escolher(
-  candidatos: Estatistica[],
-  { chave, semente, dataTs, ignorarCapacidade, ignorarGap }: ContextoEscolha,
-): Estatistica | null {
+function escolher(candidatos: Estatistica[], contexto: ContextoEscolha): Estatistica | null {
+  const { chave, semente, dataTs, ehFds, regras, ignorarCapacidade, ignorarGap, ignorarConsecutivo, ignorarLimite } =
+    contexto
+
   const validos = candidatos.filter((c) => {
     if (!ignorarCapacidade && c.restantes <= 0) return false
-    if (!ignorarGap && diasDesde(c.ultimoTs, dataTs) < c.gap) return false
+    const dias = diasDesde(c.ultimoTs, dataTs)
+    if (!ignorarGap && dias < c.gap) return false
+    if (!ignorarConsecutivo && regras.evitarConsecutivos && dias < 2) return false
+    if (!ignorarLimite && regras.limiteMensal > 0 && c.total >= regras.limiteMensal) return false
     return true
   })
 
@@ -90,9 +130,11 @@ function escolher(
       // Sem folga disponível, prefere quem está mais próximo da frequência configurada.
       const aderencia = diasDesde(c.ultimoTs, dataTs) / c.gap
       const criterio = ignorarGap ? -aderencia : 0
+      // Em fim de semana, quem já saiu menos nos fins de semana vem primeiro.
+      const criterioFds = regras.equilibrarFds && ehFds ? c.fds : 0
       return {
         c,
-        placar: [criterio, c.total, c.ultimoTs, hash(`${semente}|${chave}|${c.id}`)],
+        placar: [criterio, criterioFds, c.total, c.ultimoTs, hash(`${semente}|${chave}|${c.id}`)],
       }
     })
     .sort((a, b) => {
@@ -108,15 +150,29 @@ function escolher(
 function comprometer(estatistica: Estatistica, ocorrencia: Ocorrencia): void {
   estatistica.total += 1
   estatistica.restantes -= 1
+  if (ehFimDeSemana(ocorrencia.diaSemana)) estatistica.fds += 1
   estatistica.ultimoTs = ocorrencia.data.getTime()
 }
 
-function cascata(candidatos: Estatistica[], contexto: Omit<ContextoEscolha, 'ignorarCapacidade' | 'ignorarGap'>): Estatistica | null {
-  const fases: Array<Pick<ContextoEscolha, 'ignorarCapacidade' | 'ignorarGap'>> = [
-    { ignorarCapacidade: false, ignorarGap: false },
-    { ignorarCapacidade: true, ignorarGap: false },
-    { ignorarCapacidade: false, ignorarGap: true },
-    { ignorarCapacidade: true, ignorarGap: true },
+type ContextoCascata = Omit<
+  ContextoEscolha,
+  'ignorarCapacidade' | 'ignorarGap' | 'ignorarConsecutivo' | 'ignorarLimite'
+>
+
+function cascata(candidatos: Estatistica[], contexto: ContextoCascata): Estatistica | null {
+  // Ordem das relaxações: capacidade → folga → limite (sugerido) → descanso (último recurso).
+  const fases: Array<
+    Pick<
+      ContextoEscolha,
+      'ignorarCapacidade' | 'ignorarGap' | 'ignorarConsecutivo' | 'ignorarLimite'
+    >
+  > = [
+    { ignorarCapacidade: false, ignorarGap: false, ignorarConsecutivo: false, ignorarLimite: false },
+    { ignorarCapacidade: true, ignorarGap: false, ignorarConsecutivo: false, ignorarLimite: false },
+    { ignorarCapacidade: false, ignorarGap: true, ignorarConsecutivo: false, ignorarLimite: false },
+    { ignorarCapacidade: true, ignorarGap: true, ignorarConsecutivo: false, ignorarLimite: false },
+    { ignorarCapacidade: true, ignorarGap: true, ignorarConsecutivo: false, ignorarLimite: true },
+    { ignorarCapacidade: true, ignorarGap: true, ignorarConsecutivo: true, ignorarLimite: true },
   ]
   for (const fase of fases) {
     const escolhido = escolher(candidatos, { ...contexto, ...fase })
@@ -131,6 +187,8 @@ export interface EntradaGerarEscala {
   manuais?: Record<string, string>
   semente?: string
   fixa?: boolean
+  /** Regras de Configurações → Regras do Rodízio. */
+  regras?: RegrasRodizio
 }
 
 export interface ResultadoEscala {
@@ -151,7 +209,9 @@ export function gerarEscala({
   manuais = {},
   semente = '',
   fixa = false,
+  regras,
 }: EntradaGerarEscala): ResultadoEscala {
+  const regrasNorm = normalizarRegras(regras)
   const stats = preparar(dirigentes, ocorrencias)
   const porId = new Map(stats.map((s) => [s.id, s]))
   const auto: Record<string, string> = {}
@@ -163,7 +223,7 @@ export function gerarEscala({
     const oc = porChave.get(chave)
     if (!s) continue
     s.total += 1
-    s.restantes -= 1
+    if (oc && ehFimDeSemana(oc.diaSemana)) s.fds += 1
     if (oc && oc.data.getTime() > s.ultimoTs) s.ultimoTs = oc.data.getTime()
   }
 
@@ -171,7 +231,13 @@ export function gerarEscala({
     const candidatos = stats.filter(
       (s) => s.dias.has(oc.diaSemana) && s.horarios.has(oc.campo.horario),
     )
-    const contexto = { chave: oc.key, semente, dataTs: oc.data.getTime() }
+    const contexto = {
+      chave: oc.key,
+      semente,
+      dataTs: oc.data.getTime(),
+      ehFds: ehFimDeSemana(oc.diaSemana),
+      regras: regrasNorm,
+    }
 
     if (manuais[oc.key]) {
       // Calcula o que o rodízio teria escolhido (para poder desfazer o ajuste)

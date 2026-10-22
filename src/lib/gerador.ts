@@ -35,6 +35,11 @@ export function gerarEscalaDoMes(estado: Estado, chave: string, { forcar = false
     manuais,
     semente: chave,
     fixa: estado.escalas._config.designacao_fixa === true,
+    regras: {
+      evitarConsecutivos: estado.escalas._config.evitar_consecutivos,
+      equilibrarFds: estado.escalas._config.equilibrar_fds,
+      limiteMensal: estado.escalas._config.limite_mensal,
+    },
   })
 
   const novoRegistro: RegistroMes = {

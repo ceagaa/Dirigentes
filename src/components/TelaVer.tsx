@@ -60,11 +60,11 @@ export default function TelaVer({
   if (!dados || !config) {
     return (
       <div className="mx-auto flex min-h-svh max-w-lg flex-col items-center justify-center gap-4 px-6 text-center">
-        <LinkIcon className="size-8 text-wine" aria-hidden="true" />
-        <h1 className="font-display text-2xl text-ink">Link inválido</h1>
+        <LinkIcon className="size-8 text-crimson" aria-hidden="true" />
+        <h1 className="font-display text-2xl text-ink">Link invÃ¡lido</h1>
         <p className="text-sm text-muted">
-          Este link não contém uma designação válida. Peça para a pessoa gerar o link novamente
-          na tela da designação pronta.
+          Este link nÃ£o contÃ©m uma designaÃ§Ã£o vÃ¡lida. PeÃ§a para a pessoa gerar o link novamente
+          na tela da designaÃ§Ã£o pronta.
         </p>
         <Botao variante="primario" onClick={aoVoltar}>
           Voltar para o app
@@ -81,14 +81,14 @@ export default function TelaVer({
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span
-            className="flex size-9 items-center justify-center bg-petrol text-white"
+            className="flex size-9 items-center justify-center bg-teal text-white"
             aria-hidden="true"
           >
             <MapPin className="size-5" />
           </span>
           <div>
             <p className="font-display text-base font-bold leading-tight text-ink">
-              Designação compartilhada
+              DesignaÃ§Ã£o compartilhada
             </p>
             <p className="text-xs text-muted">{dados.c}</p>
           </div>
@@ -116,7 +116,7 @@ export default function TelaVer({
               await baixarPdf(cardRef.current, chave)
               aoAvisar('PDF baixado.')
             } catch (e) {
-              aoAvisar(e instanceof Error ? e.message : 'Não foi possível gerar o PDF.')
+              aoAvisar(e instanceof Error ? e.message : 'NÃ£o foi possÃ­vel gerar o PDF.')
             }
           }}
         >
@@ -130,7 +130,7 @@ export default function TelaVer({
               await baixarImagem(cardRef.current, chave)
               aoAvisar('Imagem baixada.')
             } catch (e) {
-              aoAvisar(e instanceof Error ? e.message : 'Não foi possível gerar a imagem.')
+              aoAvisar(e instanceof Error ? e.message : 'NÃ£o foi possÃ­vel gerar a imagem.')
             }
           }}
         >
@@ -140,7 +140,7 @@ export default function TelaVer({
       </div>
 
       <p className="mt-4 text-[13px] text-muted">
-        Somente leitura: esta é a programação que foi compartilhada com você.
+        Somente leitura: esta Ã© a programaÃ§Ã£o que foi compartilhada com vocÃª.
       </p>
     </div>
   )

@@ -1,9 +1,30 @@
 import type { Campo, ConfigEscala, Dirigente } from '../lib/dominio'
 import { useState } from 'react'
-import { Check, ChevronRight, Lock, Plus, Repeat, Settings, Trash } from 'lucide-react'
-import { DIAS_SEMANA, FREQUENCIAS, HORARIOS_PADRAO, infoDia } from '../lib/constants'
+import {
+  Check,
+  ChevronRight,
+  Church,
+  Cloud,
+  FileText,
+  Lock,
+  MapPin,
+  MoreVertical,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  Trash,
+} from 'lucide-react'
+import {
+  DIAS_SEMANA,
+  FREQUENCIAS,
+  HORARIOS_PADRAO,
+  MESES,
+  infoDia,
+} from '../lib/constants'
 import { definirPin, pinSalvo } from '../lib/api'
-import { Botao, Input, Modal, Rotulo, Select, Vazio } from './ui'
+import { Botao, Input, Kicker, Modal, Rotulo, Select, Stepper, Toggle, Vazio } from './ui'
 
 type FormCampo = Partial<Campo> & {
   diaSemana: number
@@ -20,6 +41,10 @@ function vazio(): FormCampo {
   return { diaSemana: 3, horario: '19:30', local: '', fixo: null }
 }
 
+/** Data de hoje resolvida uma vez (oxlint: sem Date instável no render). */
+const HOJE = new Date()
+const ATUALIZADO = `em ${MESES[HOJE.getMonth()]} de ${HOJE.getFullYear()}`
+
 function Linha({
   rotulo,
   descricao,
@@ -32,14 +57,85 @@ function Linha({
   acao?: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-      <div className="min-w-0">
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div className="min-w-0 pr-1">
         <p className="text-sm font-semibold text-ink">{rotulo}</p>
         {descricao ? <p className="mt-0.5 text-[13px] text-muted">{descricao}</p> : null}
-        {children ? <div className="mt-1">{children}</div> : null}
+        {children ? <div className="mt-1.5">{children}</div> : null}
       </div>
       {acao}
     </div>
+  )
+}
+
+function TituloSecao({
+  titulo,
+  descricao,
+  badge,
+}: {
+  titulo: string
+  descricao?: string
+  badge?: string
+}) {
+  return (
+    <div className="flex items-end justify-between gap-3 px-1">
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold text-ink">{titulo}</h2>
+        {descricao ? <p className="mt-0.5 text-sm text-muted">{descricao}</p> : null}
+      </div>
+      {badge ? (
+        <span className="shrink-0 text-xs font-bold text-muted">{badge}</span>
+      ) : null}
+    </div>
+  )
+}
+
+interface CompartilharProps {
+  icone: React.ReactNode
+  caixa: string
+  titulo: string
+  descricao: string
+  onClick?: () => void
+  desabilitado?: boolean
+}
+
+function ItemCompartilhar({
+  icone,
+  caixa,
+  titulo,
+  descricao,
+  onClick,
+  desabilitado,
+}: CompartilharProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={desabilitado}
+      className={`flex w-full items-center justify-between gap-3 rounded-xl bg-card p-4 text-left shadow-sm transition-colors ${
+        desabilitado ? 'cursor-not-allowed opacity-70' : 'active:bg-canvas'
+      }`}
+    >
+      <span className="flex min-w-0 items-center gap-3.5">
+        <span
+          className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${caixa}`}
+          aria-hidden="true"
+        >
+          {icone}
+        </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm font-semibold text-ink">{titulo}</span>
+          <span className="truncate text-[13px] text-muted">{descricao}</span>
+        </span>
+      </span>
+      {desabilitado ? (
+        <span className="shrink-0 rounded-full bg-line px-2 py-0.5 text-[11px] font-bold text-ink-soft">
+          Em breve
+        </span>
+      ) : (
+        <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden="true" />
+      )}
+    </button>
   )
 }
 
@@ -47,19 +143,26 @@ interface ConfigCamposProps {
   config: ConfigEscala
   campos: Campo[]
   dirigentes: Dirigente[]
+  sincronizado: boolean
   aoAlterarConfig: (patch: Partial<ConfigEscala>) => void
   aoAlterarCampos: (lista: Campo[]) => void
+  aoExportar: () => void
+  aoCopiarLink: () => void
 }
 
 export default function ConfigCampos({
   config,
   campos,
   dirigentes,
+  sincronizado,
   aoAlterarConfig,
   aoAlterarCampos,
+  aoExportar,
+  aoCopiarLink,
 }: ConfigCamposProps) {
   const [form, setForm] = useState<FormCampo | null>(null)
   const [erro, setErro] = useState('')
+  const [editandoCong, setEditandoCong] = useState(false)
   const [pin, setPin] = useState(() => pinSalvo())
   const [pinSalvoOk, setPinSalvoOk] = useState(false)
 
@@ -118,49 +221,153 @@ export default function ConfigCampos({
   return (
     <div className="space-y-6">
       <header>
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">Ajustes</p>
-        <h1 className="mt-1.5 font-display text-4xl font-bold leading-none text-ink">
-          Configurações
-        </h1>
+        <Kicker className="text-muted">Ajustes do sistema</Kicker>
+        <h1 className="mt-1 text-[26px] font-bold tracking-tight text-ink">Configurações</h1>
       </header>
 
-      <section>
-        <h2 className="mb-2 flex items-center gap-2 px-1 font-display text-lg text-ink">
-          <Settings className="size-4 text-petrol" aria-hidden="true" />
-          Cabeçalho da escala
-        </h2>
-        <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-paper">
-          <div className="px-4 py-3">
-            <label htmlFor="cfg-titulo" className="block text-[13px] text-muted">
-              Título
-            </label>
-            <input
-              id="cfg-titulo"
-              value={config.titulo}
-              onChange={(e) => aoAlterarConfig({ titulo: e.target.value })}
-              className="w-full bg-transparent text-sm font-semibold text-ink"
-            />
+      <div className="rounded-xl bg-card p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal">
+              <Church className="size-6" aria-hidden="true" />
+            </span>
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-semibold text-ink">
+                {config.congregacao || config.titulo || 'Minha congregação'}
+              </span>
+              <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                <span className="truncate text-[13px] text-muted">{config.titulo}</span>
+                <span className="text-[10px] text-muted" aria-hidden="true">
+                  •
+                </span>
+                <span className="shrink-0 rounded-full bg-success-bg px-2 py-0.5 text-[11px] font-bold text-success">
+                  Em uso
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="px-4 py-3">
-            <label htmlFor="cfg-cong" className="block text-[13px] text-muted">
-              Congregação / Campo
-            </label>
-            <input
-              id="cfg-cong"
-              value={config.congregacao}
-              onChange={(e) => aoAlterarConfig({ congregacao: e.target.value })}
-              className="w-full bg-transparent text-sm font-semibold text-ink"
-            />
-          </div>
+          <button
+            type="button"
+            aria-label="Editar congregação"
+            onClick={() => setEditandoCong(true)}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-teal-tint hover:text-teal"
+          >
+            <Pencil className="size-5" aria-hidden="true" />
+          </button>
         </div>
-        <p className="mt-2 px-1 text-[13px] text-muted">
-          Aparece no topo da programação e em toda a exportação em PDF e imagem.
-        </p>
+      </div>
+
+      <section className="space-y-3">
+        <TituloSecao
+          titulo="Locais e horários"
+          badge={`${campos.length} ${campos.length === 1 ? 'dia ativo' : 'dias ativos'}`}
+        />
+        <div className="flex flex-col gap-2">
+          {ordenados.map((c) => {
+            const fixo = ativos.find((d) => d.id === c.fixo)
+            return (
+              <div
+                key={c.id}
+                className="flex items-center justify-between gap-3 rounded-xl bg-card p-4 shadow-sm"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-canvas text-teal">
+                    <MapPin className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-semibold text-ink">{c.local}</span>
+                    <span className="mt-0.5 text-[13px] text-ink-soft">
+                      {infoDia(c.diaSemana).nome} ({c.horario})
+                    </span>
+                    {fixo ? (
+                      <span className="mt-0.5 text-[13px] font-semibold text-teal">
+                        Fixo: {fixo.nome}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Editar ${c.local}, ${infoDia(c.diaSemana).nome}`}
+                  onClick={() =>
+                    abrir({ ...c, diaSemana: Number(c.diaSemana), fixo: c.fixo ?? null })
+                  }
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:text-teal"
+                >
+                  <MoreVertical className="size-[18px]" aria-hidden="true" />
+                </button>
+              </div>
+            )
+          })}
+
+          <button
+            type="button"
+            onClick={() => abrir(vazio())}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-tint px-4 py-3.5 text-sm font-semibold text-teal shadow-sm transition-colors active:bg-canvas"
+          >
+            <Plus className="size-5" aria-hidden="true" />
+            Adicionar ponto de encontro
+          </button>
+        </div>
       </section>
 
-      <section>
-        <h2 className="mb-2 px-1 font-display text-lg text-ink">Rodízio</h2>
-        <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-paper">
+      <section className="space-y-2">
+        <TituloSecao
+          titulo="Regras do Rodízio"
+          descricao="Critérios inteligentes para a geração automática da escala"
+        />
+        <div className="divide-y divide-line-soft overflow-hidden rounded-xl bg-card shadow-sm">
+          <Linha
+            rotulo="Evitar dias consecutivos"
+            descricao="Garante intervalo de descanso para o mesmo dirigente"
+            acao={
+              <Toggle
+                rotulo="Evitar dias consecutivos"
+                checked={config.evitar_consecutivos !== false}
+                aoMudar={(valor) => aoAlterarConfig({ evitar_consecutivos: valor })}
+              />
+            }
+          />
+          <Linha
+            rotulo="Equilibrar fins de semana"
+            descricao="Distribui saídas de sábado e domingo de forma equitativa"
+            acao={
+              <Toggle
+                rotulo="Equilibrar fins de semana"
+                checked={config.equilibrar_fds !== false}
+                aoMudar={(valor) => aoAlterarConfig({ equilibrar_fds: valor })}
+              />
+            }
+          />
+          <Linha
+            rotulo="Priorizar apoio ministerial"
+            descricao="Pareia novos dirigentes com irmãos experientes"
+            acao={
+              <span className="flex shrink-0 items-center gap-2">
+                <span className="rounded-full bg-line px-2 py-0.5 text-[11px] font-bold text-ink-soft">
+                  Em breve
+                </span>
+                <Toggle rotulo="Priorizar apoio ministerial" checked={false} aoMudar={() => {}} disabled />
+              </span>
+            }
+          />
+          <Linha
+            rotulo="Limite mensal por dirigente"
+            descricao={
+              config.limite_mensal
+                ? 'Máximo sugerido no algoritmo'
+                : 'Sem limite: distribui o máximo possível'
+            }
+            acao={
+              <Stepper
+                rotulo="limite mensal"
+                valor={config.limite_mensal ?? 3}
+                min={0}
+                max={10}
+                aoMudar={(valor) => aoAlterarConfig({ limite_mensal: valor })}
+              />
+            }
+          />
           <Linha
             rotulo="Designação fixa"
             descricao={
@@ -169,12 +376,11 @@ export default function ConfigCampos({
                 : 'Distribui conforme a frequência de cada ficha.'
             }
             acao={
-              <Botao
-                variante={fixaLigada ? 'vinho' : 'secundario'}
-                onClick={() => aoAlterarConfig({ designacao_fixa: !fixaLigada })}
-              >
-                {fixaLigada ? 'Desligar' : 'Ligar'}
-              </Botao>
+              <Toggle
+                rotulo="Designação fixa"
+                checked={fixaLigada}
+                aoMudar={(valor) => aoAlterarConfig({ designacao_fixa: valor })}
+              />
             }
           />
           <Linha
@@ -183,7 +389,7 @@ export default function ConfigCampos({
             acao={
               <Select
                 aria-label="Frequência padrão"
-                className="w-40"
+                className="w-36"
                 value={config.frequencia_padrao}
                 onChange={(e) => aoAlterarConfig({ frequencia_padrao: e.target.value })}
               >
@@ -197,92 +403,84 @@ export default function ConfigCampos({
           />
         </div>
         {fixaLigada && !campos.some((c) => c.fixo) ? (
-          <p className="mt-2 rounded-xl border-l-2 border-wine bg-wine-soft px-3 py-2 text-[13px] text-ink">
-            Nenhum dia tem “Quem dirige” definido: informe a pessoa fixa de cada dia abaixo.
+          <p className="rounded-xl border-l-2 border-crimson bg-crimson-bg px-3 py-2 text-[13px] text-ink">
+            Nenhum dia tem “Quem dirige” definido: informe a pessoa fixa de cada dia em Locais e
+            horários.
           </p>
         ) : null}
       </section>
 
-      <section>
-        <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          <h2 className="font-display text-lg text-ink">Dias de campo</h2>
-          <Botao variante="primario" onClick={() => abrir(vazio())}>
-            <Plus className="size-4" />
-            Novo
-          </Botao>
-        </div>
-
-        {!ordenados.length ? (
-          <Vazio
-            icone={Repeat}
-            titulo="Nenhum dia de campo configurado. Cadastre ao menos um dia da semana com horário e ponto de encontro."
-            acao={
-              <Botao variante="primario" onClick={() => abrir(vazio())}>
-                <Plus className="size-4" />
-                Cadastrar dia de campo
-              </Botao>
-            }
+      <section className="space-y-2">
+        <TituloSecao
+          titulo="Compartilhamento"
+          descricao="Distribuição oficial da escala para o grupo"
+        />
+        <div className="flex flex-col gap-2">
+          <ItemCompartilhar
+            icone={<FileText className="size-6" />}
+            caixa="bg-teal-tint text-teal"
+            titulo="Gerar PDF da Escala Mensal"
+            descricao="Quadro de avisos em formato A4"
+            onClick={aoExportar}
           />
-        ) : (
-          <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-paper">
-            {ordenados.map((c) => {
-              const fimDeSemana = c.diaSemana === 0 || c.diaSemana === 6
-              const fixo = ativos.find((d) => d.id === c.fixo)
-              return (
-                <div key={c.id} className="flex items-center gap-3 px-4 py-3.5">
-                  <span
-                    className={`size-2.5 shrink-0 rounded-full ${fimDeSemana ? 'bg-petrol' : 'bg-wine'}`}
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink">
-                      {infoDia(c.diaSemana).nome} · {c.horario}
-                    </p>
-                    <p className="truncate text-[13px] text-muted">{c.local}</p>
-                    {fixo ? (
-                      <p className="text-[13px] font-semibold text-petrol">Fixo: {fixo.nome}</p>
-                    ) : null}
-                  </div>
-                  <Botao
-                    variante="secundario"
-                    onClick={() =>
-                      abrir({ ...c, diaSemana: Number(c.diaSemana), fixo: c.fixo ?? null })
-                    }
-                  >
-                    Editar
-                  </Botao>
-                  <Botao
-                    variante="fantasma"
-                    className="px-2.5"
-                    aria-label={`Excluir ${infoDia(c.diaSemana).nome}`}
-                    onClick={() => remover(c.id)}
-                  >
-                    <Trash className="size-4 text-wine" />
-                  </Botao>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-4 px-1 text-[13px] text-muted">
-          <span className="flex items-center gap-2">
-            <span className="size-3 rounded-full bg-petrol" aria-hidden="true" />
-            Domingo e sábado
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="size-3 rounded-full bg-wine" aria-hidden="true" />
-            Dias úteis
-          </span>
+          <ItemCompartilhar
+            icone={<Send className="size-6" />}
+            caixa="bg-success-bg text-success"
+            titulo="Aviso por WhatsApp"
+            descricao="Copie o link da escala e envie ao grupo"
+            onClick={aoCopiarLink}
+          />
+          <ItemCompartilhar
+            icone={<RefreshCw className="size-6" />}
+            caixa="bg-[#e6f7fb] text-[#006877]"
+            titulo="Sincronizar Google Agenda"
+            descricao="Feed de calendário em tempo real"
+            desabilitado
+          />
         </div>
       </section>
 
       <section>
-        <h2 className="mb-2 flex items-center gap-2 px-1 font-display text-lg text-ink">
-          <Lock className="size-4 text-petrol" aria-hidden="true" />
-          Acesso
-        </h2>
-        <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-paper">
+        <div className="flex flex-col space-y-4 rounded-xl bg-canvas p-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2.5">
+              <Cloud className="size-[22px] text-ink-soft" aria-hidden="true" />
+              <span className="text-sm font-semibold text-ink">Backup e Segurança</span>
+            </span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                sincronizado ? 'bg-success-bg text-success' : 'bg-crimson-bg text-crimson'
+              }`}
+            >
+              {sincronizado ? 'Nuvem OK' : 'Salvo local'}
+            </span>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              disabled
+              className="flex-1 cursor-not-allowed rounded-lg bg-card px-4 py-2.5 text-sm font-semibold text-ink-soft shadow-sm"
+            >
+              Fazer Backup
+            </button>
+            <button
+              type="button"
+              disabled
+              className="flex-1 cursor-not-allowed rounded-lg bg-card px-4 py-2.5 text-sm font-semibold text-muted shadow-sm"
+            >
+              Restaurar
+            </button>
+          </div>
+          <p className="text-center text-[11px] text-muted">
+            Backup manual e restauração: em breve. Enquanto isso, tudo é salvo na nuvem
+            automaticamente.
+          </p>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <TituloSecao titulo="Acesso" descricao="Proteção da API com PIN deste aparelho" />
+        <div className="divide-y divide-line-soft overflow-hidden rounded-xl bg-card shadow-sm">
           <Linha
             rotulo="PIN de proteção"
             descricao={
@@ -292,7 +490,7 @@ export default function ConfigCampos({
             }
             acao={
               <Botao onClick={salvarPin}>
-                <Check className="size-4" />
+                <Check className="size-4" aria-hidden="true" />
                 {pinSalvoOk ? 'Salvo' : 'Salvar'}
               </Botao>
             }
@@ -313,10 +511,33 @@ export default function ConfigCampos({
             </p>
           </Linha>
         </div>
-        <p className="mt-2 px-1 text-[13px] text-muted">
+        <p className="px-1 text-[13px] text-muted">
           Fica guardado só neste aparelho; deixe em branco se o servidor não usa PIN.
         </p>
       </section>
+
+      {!ordenados.length ? (
+        <Vazio
+          icone={MapPin}
+          titulo="Nenhum dia de campo configurado. Cadastre ao menos um dia da semana com horário e ponto de encontro."
+          acao={
+            <Botao variante="primario" onClick={() => abrir(vazio())}>
+              <Plus className="size-4" aria-hidden="true" />
+              Cadastrar dia de campo
+            </Botao>
+          }
+        />
+      ) : null}
+
+      <footer className="flex flex-col items-center gap-1 pb-4 pt-2 text-center">
+        <span className="mb-1 flex size-8 items-center justify-center rounded-full bg-teal-tint text-teal">
+          <ShieldCheck className="size-[18px]" aria-hidden="true" />
+        </span>
+        <span className="text-sm font-semibold text-ink">Dirigentes</span>
+        <span className="text-[11px] font-semibold text-muted">
+          {config.congregacao ? `${config.congregacao} • ` : ''}Atualizado {ATUALIZADO}
+        </span>
+      </footer>
 
       <Modal
         aberto={form !== null}
@@ -388,30 +609,64 @@ export default function ConfigCampos({
             </div>
 
             {erro ? (
-              <p role="alert" className="text-sm font-semibold text-wine">
+              <p role="alert" className="text-sm font-semibold text-crimson">
                 {erro}
               </p>
             ) : null}
 
             <Botao variante="primario" className="w-full" onClick={salvar}>
-              <Check className="size-4" />
+              <Check className="size-4" aria-hidden="true" />
               Salvar dia de campo
             </Botao>
 
             {form.id ? (
               <div className="flex items-center justify-between gap-2 border-t border-line-soft pt-4">
                 <p className="flex items-center gap-1.5 text-[13px] text-muted">
-                  <ChevronRight className="size-3.5" aria-hidden="true" />
+                  <Lock className="size-3.5" aria-hidden="true" />
                   Uma linha da programação
                 </p>
                 <Botao variante="fantasma" onClick={() => remover(form.id!)}>
-                  <Trash className="size-4 text-wine" />
+                  <Trash className="size-4 text-crimson" aria-hidden="true" />
                   Excluir
                 </Botao>
               </div>
             ) : null}
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        aberto={editandoCong}
+        aoFechar={() => setEditandoCong(false)}
+        titulo="Cabeçalho da escala"
+        descricao="Aparece no topo da programação e em toda a exportação em PDF e imagem."
+        largura="max-w-lg"
+      >
+        <div className="space-y-4 px-5 py-4">
+          <div>
+            <Rotulo htmlFor="cfg-cong">Congregação / Campo</Rotulo>
+            <Input
+              id="cfg-cong"
+              value={config.congregacao}
+              onChange={(e) => aoAlterarConfig({ congregacao: e.target.value })}
+              placeholder="Ex.: São João do Paraíso"
+              autoFocus
+            />
+          </div>
+          <div>
+            <Rotulo htmlFor="cfg-titulo">Título da escala</Rotulo>
+            <Input
+              id="cfg-titulo"
+              value={config.titulo}
+              onChange={(e) => aoAlterarConfig({ titulo: e.target.value })}
+              placeholder="Ex.: Designação de Campo"
+            />
+          </div>
+          <Botao variante="primario" className="w-full" onClick={() => setEditandoCong(false)}>
+            <Check className="size-4" aria-hidden="true" />
+            Concluir
+          </Botao>
+        </div>
       </Modal>
     </div>
   )
