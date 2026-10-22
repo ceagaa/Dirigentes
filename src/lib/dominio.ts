@@ -13,6 +13,10 @@ export interface Dirigente {
   frequencia: FrequenciaId | string
   dias: number[]
   horarios: string[]
+  /** Habilita a pessoa para sair como ajudante. */
+  ajudante?: boolean
+  /** Dias em que pode ser ajudante (quando `ajudante`). */
+  diasAjudante?: number[]
 }
 
 export interface Campo {
@@ -22,6 +26,8 @@ export interface Campo {
   local: string
   /** Dirigente que sai sempre neste dia (designação fixa). */
   fixo: Identificador | null
+  /** Ajudante que sai sempre neste dia (designação fixa; null = sem ajudante). */
+  ajudanteFixo?: Identificador | null
 }
 
 export interface ConfigEscala {
@@ -35,6 +41,10 @@ export interface ConfigEscala {
   equilibrar_fds: boolean
   /** Teto de designações por dirigente no mês (0 = sem limite; aplicação suave). */
   limite_mensal: number
+  /** Troca o horário regular de todos os dias feriados pelo horário abaixo. */
+  ajustar_feriados: boolean
+  /** Horário que vale nos feriados quando `ajustar_feriados` está ligado. */
+  horario_feriado: string
 }
 
 /** `MapaDesignacoes` cobre os registros de `escalas` (também guarda `_config`). */
@@ -55,6 +65,10 @@ export interface Estado {
 export interface RegistroMes {
   auto?: Record<string, Identificador>
   manuais?: Record<string, Identificador>
+  /** Dirigentes-ajudante sugeridos pelo rodízio. */
+  autoAjudante?: Record<string, Identificador>
+  /** Ajuste manual de ajudante (não afeta a próxima geração automática). */
+  manuaisAjudante?: Record<string, Identificador>
   geradoEm?: string
 }
 
@@ -66,6 +80,10 @@ export interface Ocorrencia {
   dia: number
   diaSemana: number
   campo: Campo
+  /** Feriado nacional neste dia. */
+  feriado?: boolean
+  /** Último domingo do mês. */
+  ultimoDomingo?: boolean
 }
 
 /** Candidato do rodízio (ficha + disponibilidade). */
@@ -73,13 +91,17 @@ export interface Candidato extends Dirigente {
   disponivel: boolean
 }
 
-/** Payload codificado no link compartilhado (linhas [iso, horário, local, nome]). */
+/**
+ * Payload codificado no link compartilhado. Linhas:
+ * [iso, horário, local, nome] e, quando o dia é fixo (designação fixa +
+ * "Quem dirige"), um 5º elemento '1' mantém o agrupamento igual ao PDF.
+ */
 export interface PayloadCompartilhado {
   t: string
   c: string
   a: number
   m: number
-  r: Array<[string, string, string, string]>
+  r: Array<[string, string, string, string, string?]>
 }
 
 /** Origem de onde o estado veio ao carregar. */
@@ -89,10 +111,10 @@ export type OrigemEstado = 'nuvem' | 'local' | 'padrao'
 export type DestinoEstado = 'nuvem' | 'local'
 
 /** Abas inferiores do app. */
-export type AbaNav = 'designacao' | 'dirigentes' | 'config'
+export type AbaNav = 'designacao' | 'dirigentes' | 'locais' | 'config'
 
 /** Telas internas do app (montagem é filha da aba Designação). */
 export type Tela = 'resumo' | 'montagem' | AbaNav
 
 /** Variantes visuais do Botão da UI. */
-export type VarianteBotao = 'primario' | 'vinho' | 'secundario' | 'fantasma'
+export type VarianteBotao = 'primario' | 'vinho' | 'secundario' | 'fantasma' | 'perigo'

@@ -1,6 +1,6 @@
 import type { AbaNav } from '../lib/dominio'
 import type { LucideIcon } from 'lucide-react'
-import { CalendarDays, Settings, Users } from 'lucide-react'
+import { CalendarDays, MapPin, Settings, Users } from 'lucide-react'
 
 interface ItemNav {
   id: AbaNav
@@ -11,6 +11,7 @@ interface ItemNav {
 const ITENS: ItemNav[] = [
   { id: 'designacao', rotulo: 'Designação', Icone: CalendarDays },
   { id: 'dirigentes', rotulo: 'Dirigentes', Icone: Users },
+  { id: 'locais', rotulo: 'Locais', Icone: MapPin },
   { id: 'config', rotulo: 'Configurações', Icone: Settings },
 ]
 
@@ -30,7 +31,7 @@ export default function BottomNav({ aba, aoMudar }: { aba: AbaNav; aoMudar: (aba
                 type="button"
                 aria-current={ativa ? 'page' : undefined}
                 onClick={() => aoMudar(id)}
-                className={`flex h-14 w-20 flex-col items-center justify-center gap-0.5 rounded-xl transition-colors ${
+                className={`flex h-14 w-[22vw] max-w-20 flex-col items-center justify-center gap-0.5 rounded-xl transition-colors ${
                   ativa ? 'font-bold text-teal' : 'text-faint hover:text-ink-soft'
                 }`}
               >

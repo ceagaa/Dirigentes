@@ -27,9 +27,11 @@ export function decodificar(texto: string): PayloadCompartilhado | null {
       c: bruto.c,
       a: Number(bruto.a) || 0,
       m: Number(bruto.m) || 0,
-      r: bruto.r.map((linha): [string, string, string, string] => {
-        const [iso = '', horario = '', local = '', nome = ''] = Array.isArray(linha) ? linha : []
-        return [String(iso), String(horario), String(local), String(nome)]
+      r: bruto.r.map((linha): [string, string, string, string, string?] => {
+        const [iso = '', horario = '', local = '', nome = '', fixo = ''] = Array.isArray(linha)
+          ? linha
+          : []
+        return [String(iso), String(horario), String(local), String(nome), String(fixo)]
       }),
     }
   } catch {
@@ -47,7 +49,8 @@ export interface EntradaPayload {
 
 /**
  * Monta o payload mínimo da designação pronta: cabeçalho + linhas
- * [iso, horário, local, nome] — cabe em um link de WhatsApp.
+ * [iso, horário, local, nome] — cabe em um link de WhatsApp. Dias fixos
+ * (designação fixa + "Quem dirige") ganham o marcador '1' no fim da linha.
  */
 export function montarPayload({
   config,
@@ -61,12 +64,16 @@ export function montarPayload({
 
   const linhas = ocorrencias
     .filter((oc) => designacoes[oc.key])
-    .map((oc): [string, string, string, string] => [
-      oc.iso,
-      String(oc.campo.horario),
-      String(oc.campo.local),
-      porId.get(designacoes[oc.key])?.nome ?? '',
-    ])
+    .map((oc): [string, string, string, string, string?] => {
+      const base: [string, string, string, string] = [
+        oc.iso,
+        String(oc.campo.horario),
+        String(oc.campo.local),
+        porId.get(designacoes[oc.key])?.nome ?? '',
+      ]
+      if (config.designacao_fixa && oc.campo.fixo) return [base[0], base[1], base[2], base[3], '1']
+      return base
+    })
 
   return {
     t: config.titulo,

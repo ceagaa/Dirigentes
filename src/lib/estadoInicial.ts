@@ -14,7 +14,7 @@ export function estadoInicial(): Estado {
         ativo: true,
         frequencia: 'semanal',
         dias: [0, 3],
-        horarios: ['09:00', '19:30'],
+        horarios: ['09:00', '18:30'],
       },
       {
         id: 'dir-2',
@@ -23,7 +23,9 @@ export function estadoInicial(): Estado {
         ativo: true,
         frequencia: 'quinzenal',
         dias: [0, 4, 6],
-        horarios: ['09:00', '19:30'],
+        horarios: ['09:00', '18:30'],
+        ajudante: true,
+        diasAjudante: [3, 4],
       },
       {
         id: 'dir-3',
@@ -32,7 +34,7 @@ export function estadoInicial(): Estado {
         ativo: true,
         frequencia: 'quinzenal',
         dias: [3, 4],
-        horarios: ['19:30'],
+        horarios: ['18:30'],
       },
       {
         id: 'dir-4',
@@ -41,7 +43,9 @@ export function estadoInicial(): Estado {
         ativo: true,
         frequencia: 'mensal',
         dias: [0, 3, 4],
-        horarios: ['09:00', '19:30'],
+        horarios: ['09:00', '18:30'],
+        ajudante: true,
+        diasAjudante: [4],
       },
       {
         id: 'dir-5',
@@ -51,6 +55,8 @@ export function estadoInicial(): Estado {
         frequencia: 'mensal',
         dias: [0, 6],
         horarios: ['09:00'],
+        ajudante: true,
+        diasAjudante: [0],
       },
       {
         id: 'dir-6',
@@ -59,7 +65,7 @@ export function estadoInicial(): Estado {
         ativo: false,
         frequencia: 'bimestral',
         dias: [3],
-        horarios: ['19:30'],
+        horarios: ['18:30'],
       },
     ],
     config_campos: [
@@ -73,14 +79,14 @@ export function estadoInicial(): Estado {
       {
         id: 'campo-2',
         diaSemana: 3,
-        horario: '19:30',
+        horario: '18:30',
         local: 'Terminal Rodoviário',
         fixo: null,
       },
       {
         id: 'campo-3',
         diaSemana: 4,
-        horario: '19:30',
+        horario: '18:30',
         local: 'Feira Livre - Av. Brasil',
         fixo: null,
       },
@@ -94,6 +100,8 @@ export function estadoInicial(): Estado {
         evitar_consecutivos: true,
         equilibrar_fds: true,
         limite_mensal: 3,
+        ajustar_feriados: false,
+        horario_feriado: '08:00',
       },
     },
   }
@@ -107,6 +115,8 @@ export function registroDe(escalas: Escalas, chave: string): RegistroMes {
   return {
     auto: registro.auto ?? {},
     manuais: registro.manuais ?? {},
+    autoAjudante: registro.autoAjudante ?? {},
+    manuaisAjudante: registro.manuaisAjudante ?? {},
     geradoEm: registro.geradoEm,
   }
 }
@@ -132,11 +142,17 @@ export function normalizarEstado(bruto: unknown): Estado {
       ? Math.floor(limiteBruto)
       : 3
 
+  const horarioFeriado =
+    typeof config.horario_feriado === 'string' && /^\d{2}:\d{2}$/.test(config.horario_feriado)
+      ? config.horario_feriado
+      : '08:00'
+
   const normalizarCampos = (lista: Campo[]): Campo[] =>
     lista.map((c) => ({
       ...c,
       diaSemana: Number(c.diaSemana),
       fixo: c.fixo || null,
+      ajudanteFixo: c.ajudanteFixo || null,
     }))
 
   return {
@@ -154,6 +170,8 @@ export function normalizarEstado(bruto: unknown): Estado {
         evitar_consecutivos: config.evitar_consecutivos !== false,
         equilibrar_fds: config.equilibrar_fds !== false,
         limite_mensal: limiteMensal,
+        ajustar_feriados: config.ajustar_feriados === true,
+        horario_feriado: horarioFeriado,
       },
     },
   }

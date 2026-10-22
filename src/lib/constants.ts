@@ -63,23 +63,7 @@ export const MESES: readonly string[] = [
   'Dezembro',
 ]
 
-export const HORARIOS_PADRAO: readonly string[] = [
-  '06:00',
-  '06:30',
-  '07:00',
-  '07:30',
-  '08:00',
-  '09:00',
-  '14:00',
-  '15:00',
-  '16:00',
-  '17:00',
-  '18:00',
-  '19:00',
-  '19:30',
-  '20:00',
-  '20:30',
-]
+export const HORARIOS_PADRAO: readonly string[] = ['08:00', '08:30', '09:00', '16:00', '18:30']
 
 export const CORES = {
   petroleo: '#045A6C',
@@ -90,13 +74,40 @@ export const CORES = {
   texto: '#10262B',
 } as const
 
-/** Cores exatas da aba "SAÍDA DE CAMPO" da planilha base (fiel no html2canvas). */
+/**
+ * Cores exatas da aba "Programação" da planilha base,
+ * extraídas com o próprio Excel (rgb resolvido, sem ambiguidade de tema).
+ */
 export const CORES_PLANILHA = {
-  texto: '#7E0000',
-  fundo: '#EAF3FA',
-  cabecalho: '#3C7F8B',
-  linha: '#D8D8D8',
+  fundo: '#FFFFFF',
+  texto: '#404040',
+  linha: '#BFBFBF',
+  titulo: '#800000',
+  mes: '#7E0024',
+  cabecalho: '#7E0024',
+  zebra: '#DDEBF7',
+  secaoSemana: '#4A90A2',
+  secaoSabado: '#BE8900',
+  secaoFeriado: '#800000',
+  barra: '#4D4D4D',
+  sublinha: '#000000',
 } as const
+
+/** Iniciais de mês como o Excel formata "d-mmm" em português (ex.: 04/abr). */
+export const MESES_ABBR = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+] as const
 
 export const TITULO_PADRAO = 'Programação para serviço de campo'
 export const CONGREGACAO_PADRAO = 'São João Do Paraíso - 140921'

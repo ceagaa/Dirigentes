@@ -53,6 +53,8 @@ interface Estatistica {
   restantes: number
   total: number
   fds: number
+  /** Vezes que saiu como ajudante (revezamento do apoio). */
+  ajudou: number
   ultimoTs: number
 }
 
@@ -89,6 +91,7 @@ function preparar(dirigentes: Dirigente[], ocorrencias: Ocorrencia[]): Estatisti
         restantes: capacidade,
         total: 0,
         fds: 0,
+        ajudou: 0,
         ultimoTs: 0,
       }
     })
@@ -181,10 +184,36 @@ function cascata(candidatos: Estatistica[], contexto: ContextoCascata): Estatist
   return null
 }
 
+/** Revezamento do apoio: quem ajudou menos primeiro; nunca a própria designada. */
+function escolherAjudante(
+  stats: Estatistica[],
+  habilitados: ReadonlySet<string>,
+  contexto: { chave: string; semente: string; dirigente: string },
+): Estatistica | null {
+  const validos = stats.filter((s) => habilitados.has(s.id) && s.id !== contexto.dirigente)
+  if (!validos.length) return null
+
+  const ordenados = validos
+    .map((c) => ({
+      c,
+      placar: [c.ajudou, c.total, c.fds, hash(`${contexto.semente}|aj|${contexto.chave}|${c.id}`)],
+    }))
+    .sort((a, b) => {
+      for (let i = 0; i < a.placar.length; i += 1) {
+        if (a.placar[i] !== b.placar[i]) return a.placar[i] - b.placar[i]
+      }
+      return 0
+    })
+
+  return ordenados[0].c
+}
+
 export interface EntradaGerarEscala {
   dirigentes: Dirigente[]
   ocorrencias: Ocorrencia[]
   manuais?: Record<string, string>
+  /** Ajustes manuais de ajudante (não são sobrescritos). */
+  manuaisAjudante?: Record<string, string>
   semente?: string
   fixa?: boolean
   /** Regras de Configurações → Regras do Rodízio. */
@@ -194,6 +223,7 @@ export interface EntradaGerarEscala {
 export interface ResultadoEscala {
   auto: Record<string, string>
   designacoes: Record<string, string>
+  autoAjudante: Record<string, string>
 }
 
 /**
@@ -207,6 +237,7 @@ export function gerarEscala({
   dirigentes,
   ocorrencias,
   manuais = {},
+  manuaisAjudante = {},
   semente = '',
   fixa = false,
   regras,
@@ -216,6 +247,21 @@ export function gerarEscala({
   const porId = new Map(stats.map((s) => [s.id, s]))
   const auto: Record<string, string> = {}
   const designacoes: Record<string, string> = { ...manuais }
+  const autoAjudante: Record<string, string> = {}
+
+  // Quem tem "Marcar como ajudante" com aquele dia habilitado.
+  const ajudantesPorDia = new Map<number, Set<string>>()
+  for (const d of dirigentes) {
+    if (!d || d.ativo === false || !d.nome || !d.ajudante) continue
+    for (const dia of (d.diasAjudante ?? []).map(Number)) {
+      let conjunto = ajudantesPorDia.get(dia)
+      if (!conjunto) {
+        conjunto = new Set<string>()
+        ajudantesPorDia.set(dia, conjunto)
+      }
+      conjunto.add(d.id)
+    }
+  }
 
   const porChave = new Map(ocorrencias.map((o) => [o.key, o]))
   for (const [chave, id] of Object.entries(manuais)) {
@@ -225,6 +271,10 @@ export function gerarEscala({
     s.total += 1
     if (oc && ehFimDeSemana(oc.diaSemana)) s.fds += 1
     if (oc && oc.data.getTime() > s.ultimoTs) s.ultimoTs = oc.data.getTime()
+  }
+  for (const id of Object.values(manuaisAjudante)) {
+    const s = porId.get(id)
+    if (s) s.ajudou += 1
   }
 
   for (const oc of ocorrencias) {
@@ -239,6 +289,8 @@ export function gerarEscala({
       regras: regrasNorm,
     }
 
+    let designado: string | null = null
+
     if (manuais[oc.key]) {
       // Calcula o que o rodízio teria escolhido (para poder desfazer o ajuste)
       // e considera essa sugestão nas contagens, mantendo o mapa automático coerente.
@@ -247,27 +299,55 @@ export function gerarEscala({
         auto[oc.key] = sugestao.id
         if (sugestao.id !== manuais[oc.key]) comprometer(sugestao, oc)
       }
-      continue
+      designado = manuais[oc.key]
+    } else {
+      const fixo = fixa ? oc.campo?.fixo ?? null : null
+      const estatisticaFixa = fixo ? porId.get(fixo) : null
+      if (estatisticaFixa && fixo) {
+        auto[oc.key] = fixo
+        designacoes[oc.key] = fixo
+        comprometer(estatisticaFixa, oc)
+        designado = fixo
+      } else {
+        const escolhido = cascata(candidatos, contexto)
+        if (escolhido) {
+          auto[oc.key] = escolhido.id
+          designacoes[oc.key] = escolhido.id
+          comprometer(escolhido, oc)
+          designado = escolhido.id
+        }
+      }
     }
 
-    const fixo = fixa ? oc.campo?.fixo ?? null : null
-    const estatisticaFixa = fixo ? porId.get(fixo) : null
-    if (estatisticaFixa && fixo) {
-      auto[oc.key] = fixo
-      designacoes[oc.key] = fixo
-      comprometer(estatisticaFixa, oc)
-      continue
-    }
-
-    const escolhido = cascata(candidatos, contexto)
-    if (escolhido) {
-      auto[oc.key] = escolhido.id
-      designacoes[oc.key] = escolhido.id
-      comprometer(escolhido, oc)
+    // Ajudante: designação fixa usa a pessoa do dia (ou ninguém, se estiver em
+    // branco); no modo rodízio, revezamento entre os habilitados. O ajuste manual vence.
+    const ajusteAjudante = manuaisAjudante[oc.key]
+    if (ajusteAjudante === undefined && designado) {
+      if (fixa) {
+        const fixoAjudante = oc.campo?.ajudanteFixo ?? null
+        const estatisticaFixa = fixoAjudante ? porId.get(fixoAjudante) : null
+        if (fixoAjudante && estatisticaFixa) {
+          autoAjudante[oc.key] = fixoAjudante
+          estatisticaFixa.ajudou += 1
+        }
+      } else {
+        const habilitados = ajudantesPorDia.get(oc.diaSemana)
+        if (habilitados?.size) {
+          const ajudante = escolherAjudante(stats, habilitados, {
+            chave: oc.key,
+            semente,
+            dirigente: designado,
+          })
+          if (ajudante) {
+            autoAjudante[oc.key] = ajudante.id
+            ajudante.ajudou += 1
+          }
+        }
+      }
     }
   }
 
-  return { auto, designacoes }
+  return { auto, designacoes, autoAjudante }
 }
 
 /** Dirigentes ativos disponíveis para um dia/horário, com os disponíveis primeiro. */
@@ -279,6 +359,23 @@ export function candidatosPara(ocorrencia: Ocorrencia, dirigentes: Dirigente[]):
       (d.horarios ?? []).includes(ocorrencia.campo.horario),
   )
   const fora = ativos.filter((d) => !disponiveis.includes(d))
+
+  return [
+    ...disponiveis.map((d) => ({ ...d, disponivel: true })),
+    ...fora.map((d) => ({ ...d, disponivel: false })),
+  ]
+}
+
+/** Pessoas habilitadas como ajudante para o dia da ocorrência (disponíveis primeiro). */
+export function candidatosAjudantePara(
+  ocorrencia: Ocorrencia,
+  dirigentes: Dirigente[],
+): Array<Dirigente & { disponivel: boolean }> {
+  const marcados = dirigentes.filter((d) => d && d.ativo !== false && d.nome && d.ajudante)
+  const disponiveis = marcados.filter((d) =>
+    (d.diasAjudante ?? []).map(Number).includes(ocorrencia.diaSemana),
+  )
+  const fora = marcados.filter((d) => !disponiveis.includes(d))
 
   return [
     ...disponiveis.map((d) => ({ ...d, disponivel: true })),

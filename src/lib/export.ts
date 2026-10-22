@@ -50,29 +50,33 @@ export async function baixarImagem(alvo: AlvoCaptura | null, chave: string): Pro
   return canvas
 }
 
+/**
+ * Gera o PDF em A4 retrato (fit 1x1, igual à planilha base), sempre em
+ * página única: se a prévia for mais alta que o espaço útil, ela é reduzida
+ * (largura e altura) até caber. Margens 6 mm laterais / 5 mm verticais.
+ */
 export async function baixarPdf(alvo: AlvoCaptura | null, chave: string): Promise<HTMLCanvasElement> {
   const canvas = alvo instanceof HTMLCanvasElement ? alvo : await capturarNo(alvo)
   const { jsPDF } = await import('jspdf')
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
   const larguraPag = pdf.internal.pageSize.getWidth()
   const alturaPag = pdf.internal.pageSize.getHeight()
-  const margem = 6
-  const largura = larguraPag - margem * 2
-  const altura = (canvas.height * largura) / canvas.width
-  const dados = canvas.toDataURL('image/jpeg', 0.95)
+  const margemX = 6
+  const margemY = 5
+  const larguraDisp = larguraPag - margemX * 2
+  const alturaDisp = alturaPag - margemY * 2
 
-  let restante = altura
-  let posicao = margem
-
-  pdf.addImage(dados, 'JPEG', margem, posicao, largura, altura)
-  restante -= alturaPag - margem
-
-  while (restante > 0) {
-    posicao = margem - (altura - restante)
-    pdf.addPage()
-    pdf.addImage(dados, 'JPEG', margem, posicao, largura, altura)
-    restante -= alturaPag - margem * 2
+  let largura = larguraDisp
+  let altura = (canvas.height * largura) / canvas.width
+  if (altura > alturaDisp) {
+    largura = (largura * alturaDisp) / altura
+    altura = alturaDisp
   }
+
+  const dados = canvas.toDataURL('image/jpeg', 0.95)
+  const x = (larguraPag - largura) / 2
+  const y = (alturaPag - altura) / 2
+  pdf.addImage(dados, 'JPEG', x, y, largura, altura)
 
   pdf.save(`${nomeArquivo(chave)}.pdf`)
   return canvas

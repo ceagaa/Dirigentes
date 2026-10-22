@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:api": "wrangler dev",
+    "dev:api": "wrangler dev --remote",
     "build": "tsc --noEmit && vite build",
     "deploy": "npm run build && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply dirigentes --remote",

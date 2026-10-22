@@ -26,13 +26,15 @@ export function gerarEscalaDoMes(estado: Estado, chave: string, { forcar = false
   if (registro.geradoEm && !forcar) return estado
 
   const { ano, mes } = lerChaveMes(chave)
-  const ocorrencias = ocorrenciasDoMes(ano, mes, estado.config_campos)
+  const ocorrencias = ocorrenciasDoMes(ano, mes, estado.config_campos, estado.escalas._config)
   const manuais = registro.manuais ?? {}
+  const manuaisAjudante = registro.manuaisAjudante ?? {}
 
-  const { auto } = gerarEscala({
+  const { auto, autoAjudante } = gerarEscala({
     dirigentes: estado.dirigentes,
     ocorrencias,
     manuais,
+    manuaisAjudante,
     semente: chave,
     fixa: estado.escalas._config.designacao_fixa === true,
     regras: {
@@ -45,6 +47,8 @@ export function gerarEscalaDoMes(estado: Estado, chave: string, { forcar = false
   const novoRegistro: RegistroMes = {
     auto,
     manuais,
+    autoAjudante,
+    manuaisAjudante,
     geradoEm: new Date().toISOString(),
   }
 

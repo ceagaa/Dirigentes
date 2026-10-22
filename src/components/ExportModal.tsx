@@ -71,7 +71,7 @@ export default function ExportModal({
         setPrevia(canvas.toDataURL('image/png'))
       } catch (e) {
         console.warn(e)
-        if (vivo) setErro('NÃ£o foi possÃ­vel renderizar a escala. Tente novamente.')
+        if (vivo) setErro('Não foi possível renderizar a escala. Tente novamente.')
       }
     })()
 
@@ -96,7 +96,7 @@ export default function ExportModal({
     } catch (e) {
       if (e instanceof Error && e.name !== 'AbortError') {
         console.warn(e)
-        setErro(e.message || 'A aÃ§Ã£o nÃ£o foi concluÃ­da. Tente novamente.')
+        setErro(e.message || 'A ação não foi concluída. Tente novamente.')
       }
     } finally {
       setOcupado('')
@@ -111,14 +111,14 @@ export default function ExportModal({
       aberto={aberto}
       aoFechar={aoFechar}
       titulo="Exportar escala"
-      descricao={`PrÃ©via fiel do cartÃ£o de ${mes} de ${ano} â€” o arquivo sai com esta mesma aparÃªncia.`}
+      descricao={`Prévia fiel do cartão de ${mes} de ${ano} — o arquivo sai com esta mesma aparência.`}
     >
       <div className="space-y-4 px-5 py-4">
         <div className="flex min-h-[160px] items-center justify-center border border-line bg-paper p-3">
           {carregando ? (
             <p className="flex items-center gap-2 text-sm text-muted">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              Gerando prÃ©viaâ€¦
+              Gerando prévia…
             </p>
           ) : erro ? (
             <p role="alert" className="max-w-sm text-center text-sm font-semibold text-crimson">
@@ -127,7 +127,7 @@ export default function ExportModal({
           ) : (
             <img
               src={previa}
-              alt="PrÃ©via da escala pronta para exportaÃ§Ã£o"
+              alt="Prévia da escala pronta para exportação"
               className="max-h-[40svh] w-auto max-w-full border border-line"
             />
           )}
@@ -169,7 +169,7 @@ export default function ExportModal({
                 (c) => compartilhar({ canvas: c, chave, texto }),
                 (destino) =>
                   destino === 'copiado'
-                    ? 'Compartilhamento indisponÃ­vel aqui: texto copiado.'
+                    ? 'Compartilhamento indisponível aqui: texto copiado.'
                     : 'Escala compartilhada.',
               )
             }
@@ -202,7 +202,7 @@ export default function ExportModal({
               executar(
                 'Link',
                 () => copiarTexto(link),
-                'Link da designaÃ§Ã£o copiado. Cole no WhatsApp ou em qualquer conversa.',
+                'Link da designação copiado. Cole no WhatsApp ou em qualquer conversa.',
               )
             }
           >
@@ -217,7 +217,7 @@ export default function ExportModal({
 
         <details className="border border-line bg-paper px-4 py-3">
           <summary className="cursor-pointer text-sm font-semibold text-ink">
-            Ver texto que serÃ¡ copiado
+            Ver texto que será copiado
           </summary>
           <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap border-t border-line-soft pt-3 text-[13px] leading-relaxed text-muted">
             {texto}

@@ -9,6 +9,8 @@ const VARIA: Record<VarianteBotao, string> = {
   vinho: 'bg-crimson text-white hover:bg-[#7d2021] border border-crimson hover:border-[#7d2021]',
   secundario: 'bg-paper text-ink border border-line hover:border-teal hover:text-teal',
   fantasma: 'border border-transparent text-muted hover:text-ink hover:bg-line-soft',
+  perigo:
+    'bg-crimson/10 text-crimson border border-crimson/20 hover:bg-crimson/20 hover:border-crimson/30',
 }
 
 type BotaoProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {

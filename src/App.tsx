@@ -7,10 +7,12 @@ import CadastroDirigentes from './components/CadastroDirigentes'
 import ConfigCampos from './components/ConfigCampos'
 import EscalaCard from './components/EscalaCard'
 import ExportModal from './components/ExportModal'
+import Locais from './components/Locais'
 import ResumoDesignacao from './components/ResumoDesignacao'
 import Splash from './components/Splash'
 import TabelaEscala from './components/TabelaEscala'
 import TelaVer from './components/TelaVer'
+import { Modal } from './components/ui'
 import { lerHashVer, linkDe, montarPayload } from './lib/compartilhamento'
 import { chaveMes, ocorrenciasDoMes, nomeMes } from './lib/datas'
 import { estadoInicial, registroDe } from './lib/estadoInicial'
@@ -29,6 +31,7 @@ export default function App() {
   const [mes, setMes] = useState(() => new Date().getMonth())
   const [manterManuais, setManterManuais] = useState(true)
   const [modalAberto, setModalAberto] = useState(false)
+  const [tabelaAberta, setTabelaAberta] = useState(false)
   const [aviso, setAviso] = useState('')
   const [payloadVer, setPayloadVer] = useState<string | null>(() => lerHashVer())
   const cardRef = useRef<HTMLDivElement>(null)
@@ -40,13 +43,19 @@ export default function App() {
   const registro = registroDe(escalas, chave)
 
   const ocorrencias = useMemo(
-    () => ocorrenciasDoMes(ano, mes, campos),
-    [ano, mes, campos],
+    () => ocorrenciasDoMes(ano, mes, campos, config),
+    [ano, mes, campos, config],
   )
 
   const efetivas = useMemo(() => {
     const base = { ...(registro.auto ?? {}) }
     for (const [k, v] of Object.entries(registro.manuais ?? {})) base[k] = v
+    return base
+  }, [registro])
+
+  const efetivasAjudante = useMemo(() => {
+    const base = { ...(registro.autoAjudante ?? {}) }
+    for (const [k, v] of Object.entries(registro.manuaisAjudante ?? {})) base[k] = v
     return base
   }, [registro])
 
@@ -101,7 +110,7 @@ export default function App() {
         titulo: 'Sem dias de campo',
         detalhe: 'Configure dia, horário e ponto de encontro',
         tom: 'alerta',
-        aoClicar: () => setTela('config'),
+        aoClicar: () => setTela('locais'),
       })
     } else if (ocorrencias.length && pendentes > 0) {
       lista.push({
@@ -109,7 +118,7 @@ export default function App() {
         titulo: `${pendentes} de ${ocorrencias.length} dias sem designação`,
         detalhe: `Monte a escala de ${nomeMes(mes)}`,
         tom: 'alerta',
-        aoClicar: () => setTela('montagem'),
+        aoClicar: () => setTabelaAberta(true),
       })
     } else if (pronta) {
       lista.push({
@@ -201,9 +210,13 @@ export default function App() {
 
   function gerar() {
     const manuais = manterManuais ? (registro.manuais ?? {}) : {}
+    const manuaisAjudante = manterManuais ? (registro.manuaisAjudante ?? {}) : {}
     const atualizado: Estado = {
       ...estado,
-      escalas: { ...estado.escalas, [chave]: { ...registro, manuais } } as Estado['escalas'],
+      escalas: {
+        ...estado.escalas,
+        [chave]: { ...registro, manuais, manuaisAjudante },
+      } as Estado['escalas'],
     }
     setEstado(gerarEscalaDoMes(atualizado, chave, { forcar: true }))
     setAviso(
@@ -235,29 +248,63 @@ export default function App() {
     setAviso(`Sem conexão: escala de ${nomeMes(proximo.mes)} gerada neste aparelho.`)
   }
 
-  function alterarDesignacao(key: string, valor: string) {
+  /** Aplica o mesmo valor a várias ocorrências (linha agrupada de dia fixo). */
+  function alterarDesignacoesLote(chaves: string[], valor: string) {
     const auto = registro.auto ?? {}
     const manuais = { ...(registro.manuais ?? {}) }
 
-    if (valor === '') {
-      if (auto[key]) manuais[key] = ''
-      else delete manuais[key]
-    } else if (valor === auto[key]) {
-      delete manuais[key]
-    } else {
-      manuais[key] = valor
+    for (const key of chaves) {
+      if (valor === '') {
+        if (auto[key]) manuais[key] = ''
+        else delete manuais[key]
+      } else if (valor === auto[key]) {
+        delete manuais[key]
+      } else {
+        manuais[key] = valor
+      }
     }
 
     alterarRegistro(chave, { ...registro, manuais })
   }
 
+  function alterarDesignacao(key: string, valor: string) {
+    alterarDesignacoesLote([key], valor)
+  }
+
+  function alterarAjudantesLote(chaves: string[], valor: string) {
+    const auto = registro.autoAjudante ?? {}
+    const manuaisAjudante = { ...(registro.manuaisAjudante ?? {}) }
+
+    for (const key of chaves) {
+      if (valor === '') {
+        if (auto[key]) manuaisAjudante[key] = ''
+        else delete manuaisAjudante[key]
+      } else if (valor === auto[key]) {
+        delete manuaisAjudante[key]
+      } else {
+        manuaisAjudante[key] = valor
+      }
+    }
+
+    alterarRegistro(chave, { ...registro, manuaisAjudante })
+  }
+
+  function alterarAjudante(key: string, valor: string) {
+    alterarAjudantesLote([key], valor)
+  }
+
+  function limparDesignacao() {
+    alterarRegistro(chave, { auto: {}, manuais: {}, autoAjudante: {}, manuaisAjudante: {} })
+    setAviso(`Designação de ${nomeMes(mes)} de ${ano} limpa.`)
+  }
+
   function limparManuais() {
-    alterarRegistro(chave, { ...registro, manuais: {} })
+    alterarRegistro(chave, { ...registro, manuais: {}, manuaisAjudante: {} })
     setAviso('Ajustes manuais removidos: a escala voltou ao rodízio automático.')
   }
 
   function exportar() {
-    if (tela === 'montagem' && !cardRef.current) {
+    if (tabelaAberta && !cardRef.current) {
       setAviso('Gere a designação antes de exportar.')
       return
     }
@@ -297,9 +344,11 @@ export default function App() {
       ? 'Montar designação'
       : tela === 'dirigentes'
         ? 'Dirigentes'
-        : tela === 'config'
-          ? 'Configurações'
-          : 'Início'
+        : tela === 'locais'
+          ? 'Locais'
+          : tela === 'config'
+            ? 'Configurações'
+            : 'Início'
 
   if (payloadVer) {
     return (
@@ -349,41 +398,16 @@ export default function App() {
               setAno(proximo.ano)
               setMes(proximo.mes)
             }}
-            aoMontar={() => setTela('montagem')}
-            aoVer={exportar}
-            aoCopiarLink={copiarLink}
-            aoConfigurar={() => setTela('config')}
-            aoCadastrar={() => setTela('dirigentes')}
-          />
-        ) : null}
-
-        {tela === 'montagem' ? (
-          <TabelaEscala
-            ano={ano}
-            mes={mes}
-            config={config}
-            aoMudarData={(novoAno, novoMes) => {
-              setAno(novoAno)
-              setMes(novoMes)
-            }}
-            dirigentes={dirigentes}
-            campos={campos}
-            ocorrencias={ocorrencias}
-            registro={registro}
-            efetivas={efetivas}
-            manterManuais={manterManuais}
-            aoAlterarManter={setManterManuais}
+            aoMontar={() => setTabelaAberta(true)}
             aoGerar={gerar}
             aoAlterarDesignacao={alterarDesignacao}
-            aoLimparManuais={limparManuais}
-            aoConfigurar={() => setTela('config')}
+            aoAlterarAjudante={alterarAjudante}
+            aoLimparDesignacao={limparDesignacao}
+            efetivasAjudante={efetivasAjudante}
+            aoVer={exportar}
+            aoCopiarLink={copiarLink}
+            aoConfigurar={() => setTela('locais')}
             aoCadastrar={() => setTela('dirigentes')}
-            cardRef={cardRef}
-            pronta={pronta}
-            aoConcluir={() => {
-              setTela('resumo')
-              setModalAberto(true)
-            }}
           />
         ) : null}
 
@@ -396,7 +420,14 @@ export default function App() {
             mes={mes}
             efetivas={efetivas}
             aoAlterar={(lista) => atualizar((e) => ({ ...e, dirigentes: lista }))}
-            aoIrParaConfig={() => setTela('config')}
+          />
+        ) : null}
+
+        {tela === 'locais' ? (
+          <Locais
+            campos={campos}
+            dirigentes={dirigentes}
+            aoAlterarCampos={(lista) => atualizar((e) => ({ ...e, config_campos: lista }))}
           />
         ) : null}
 
@@ -404,15 +435,12 @@ export default function App() {
           <ConfigCampos
             config={config}
             campos={campos}
-            dirigentes={dirigentes}
-            sincronizado={status === 'sincronizado'}
             aoAlterarConfig={(patch) =>
               atualizar((e) => ({
                 ...e,
                 escalas: { ...e.escalas, _config: { ...e.escalas._config, ...patch } },
               }))
             }
-            aoAlterarCampos={(lista) => atualizar((e) => ({ ...e, config_campos: lista }))}
             aoExportar={exportar}
             aoCopiarLink={copiarLink}
           />
@@ -421,7 +449,55 @@ export default function App() {
 
       <BottomNav aba={abaNav} aoMudar={(id) => setTela(id === 'designacao' ? 'resumo' : id)} />
 
-      {modalAberto && tela !== 'montagem' ? (
+      {tabelaAberta ? (
+        <Modal
+          aberto
+          aoFechar={() => setTabelaAberta(false)}
+          titulo="Tabela completa"
+          descricao={`${nomeMes(mes)} de ${ano}`}
+          largura="max-w-4xl"
+        >
+          <div className="px-5 py-4">
+            <TabelaEscala
+              ano={ano}
+              mes={mes}
+              config={config}
+              aoMudarData={(novoAno, novoMes) => {
+                setAno(novoAno)
+                setMes(novoMes)
+              }}
+              dirigentes={dirigentes}
+              campos={campos}
+              ocorrencias={ocorrencias}
+              registro={registro}
+              efetivas={efetivas}
+              manterManuais={manterManuais}
+              aoAlterarManter={setManterManuais}
+              aoGerar={gerar}
+              aoAlterarDesignacao={alterarDesignacoesLote}
+              aoAlterarAjudante={alterarAjudantesLote}
+              efetivasAjudante={efetivasAjudante}
+              aoLimparManuais={limparManuais}
+              aoConfigurar={() => {
+                setTabelaAberta(false)
+                setTela('locais')
+              }}
+              aoCadastrar={() => {
+                setTabelaAberta(false)
+                setTela('dirigentes')
+              }}
+              cardRef={cardRef}
+              pronta={pronta}
+              aoConcluir={() => {
+                setTabelaAberta(false)
+                setModalAberto(true)
+              }}
+            />
+          </div>
+        </Modal>
+      ) : null}
+
+      {modalAberto && !tabelaAberta ? (
         <div
           className="fixed left-[-10000px] top-0 w-[760px] overflow-hidden"
           aria-hidden="true"
@@ -433,6 +509,8 @@ export default function App() {
             dirigentes={dirigentes}
             designacoes={efetivas}
             manuais={registro.manuais ?? {}}
+            ajudantes={efetivasAjudante}
+            manuaisAjudante={registro.manuaisAjudante ?? {}}
           />
         </div>
       ) : null}

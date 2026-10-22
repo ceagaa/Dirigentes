@@ -30,6 +30,12 @@ dist-ssr
 # Artefatos de teste do Playwright
 .playwright-mcp/
 
+# Arquivos de bloqueio temporários do Office (Excel/Word abertos)
+~$*.xlsx
+~$*.docx
+~$*.xls
+~$*.doc
+
 # ==========================================
 # DevSecOps & Security Hardening
 # ==========================================

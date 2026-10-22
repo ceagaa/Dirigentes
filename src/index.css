@@ -96,12 +96,17 @@
 }
 
 /*
- * Cartão da escala: fiel à aba SAÍDA DE CAMPO da planilha.
- * Mantém as fontes do sistema e as cores de CORES_PLANILHA,
- * independentemente do restante do app.
+ * Cartão da escala: réplica da aba "Programação" da planilha base.
+ * Fonte Calibri, grade fina #BFBFBF em toda célula e cores fixas,
+ * independentes do restante do app.
  */
 .escala-card {
-  font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: Calibri, Carlito, 'Segoe UI', system-ui, sans-serif;
+}
+
+.escala-card td,
+.escala-card th {
+  border: 1px solid #bfbfbf;
 }
 
 /*

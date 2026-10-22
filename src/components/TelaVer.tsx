@@ -1,23 +1,38 @@
-import type { Ocorrencia } from '../lib/dominio'
-import type { ConfigEscala } from '../lib/dominio'
+import type { ConfigEscala, Ocorrencia } from '../lib/dominio'
 import { useMemo, useRef } from 'react'
-import { FileDown, ImageDown, Link as LinkIcon, MapPin } from 'lucide-react'
+import { Clock, FileDown, ImageDown, Link as LinkIcon, MapPin } from 'lucide-react'
 import { decodificar } from '../lib/compartilhamento'
+import { isoDeHoje } from '../lib/datas'
+import { ehFeriado, ehUltimoDomingo, rotuloEspecial } from '../lib/feriados'
+import { MESES, nomeDiaCurto } from '../lib/constants'
 import { baixarImagem, baixarPdf } from '../lib/export'
-import { Botao } from './ui'
+import { Botao, Kicker } from './ui'
 import EscalaCard from './EscalaCard'
 
-interface LinhaCompartilhada {
+/** Data de hoje resolvida uma vez (evita Date instável no render). */
+const HOJE_ISO = isoDeHoje()
+const AGORA_HHMM = new Date().toTimeString().slice(0, 5)
+
+interface LinhaDia {
   key: string
   iso: string
-  dia: number
   diaSemana: number
-  campo: { horario: string; local: string }
+  horario: string
+  local: string
   nome: string
+  fixo: boolean
+}
+
+function ddMm(iso: string): string {
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 }
 
 function isoParaDia(iso: string): number {
   return new Date(`${iso}T12:00:00`).getDay()
+}
+
+function rotuloDe(iso: string): string | null {
+  return rotuloEspecial({ feriado: ehFeriado(iso), ultimoDomingo: ehUltimoDomingo(iso) })
 }
 
 export default function TelaVer({
@@ -32,39 +47,86 @@ export default function TelaVer({
   const cardRef = useRef<HTMLDivElement>(null)
   const dados = useMemo(() => decodificar(payload ?? ''), [payload])
 
-  const config = dados ? { titulo: dados.t, congregacao: dados.c } : null
-  const chave = dados ? `${dados.a}-${dados.m + 1}` : ''
-
-  const ocorrencias = useMemo(() => {
+  const linhas = useMemo(() => {
     if (!dados) return []
     return dados.r
       .filter((linha) => Array.isArray(linha) && linha[0])
-      .map((linha, i): LinhaCompartilhada => {
-        const [iso, horario, local, nome] = linha
+      .map((linha, i): LinhaDia => {
+        const [iso, horario, local, nome, fixo] = linha
         return {
           key: `v-${i}`,
           iso,
-          dia: Number(iso.slice(8, 10)),
           diaSemana: isoParaDia(iso),
-          campo: { horario, local },
+          horario,
+          local,
           nome,
+          fixo: fixo === '1',
         }
       })
   }, [dados])
 
-  const nomes = useMemo(
-    () => Object.fromEntries(ocorrencias.map((oc) => [oc.key, oc.nome])),
-    [ocorrencias],
+  const ocorrencias = useMemo(
+    (): Ocorrencia[] =>
+      linhas.map((l) => ({
+        key: l.key,
+        data: new Date(`${l.iso}T12:00:00`),
+        iso: l.iso,
+        dia: Number(l.iso.slice(8, 10)),
+        diaSemana: l.diaSemana,
+        feriado: ehFeriado(l.iso),
+        ultimoDomingo: ehUltimoDomingo(l.iso),
+        campo: {
+          id: `campo-${l.key}`,
+          diaSemana: l.diaSemana,
+          horario: l.horario,
+          local: l.local,
+          fixo: l.fixo ? '1' : null,
+        },
+      })),
+    [linhas],
   )
+
+  const nomes = useMemo(
+    () => Object.fromEntries(linhas.map((l) => [l.key, l.nome])),
+    [linhas],
+  )
+
+  const config = useMemo(
+    (): ConfigEscala | null =>
+      dados
+        ? {
+            titulo: dados.t,
+            congregacao: dados.c,
+            designacao_fixa: true,
+            frequencia_padrao: 'quinzenal',
+            evitar_consecutivos: true,
+            equilibrar_fds: true,
+            limite_mensal: 3,
+            ajustar_feriados: false,
+            horario_feriado: '08:00',
+          }
+        : null,
+    [dados],
+  )
+
+  const hoje = linhas.filter((l) => l.iso === HOJE_ISO)
+  const destaque =
+    (hoje.length ? (hoje.find((l) => l.horario >= AGORA_HHMM) ?? hoje[hoje.length - 1]) : null) ??
+    linhas.find((l) => l.iso > HOJE_ISO) ??
+    linhas[0] ??
+    null
+  const restantes = destaque ? linhas.filter((l) => l.key !== destaque.key) : linhas
+  const rotuloDestaque = hoje.length ? 'Quem dirige hoje' : 'Próxima saída'
+  const chave = dados ? `${dados.a}-${dados.m + 1}` : ''
 
   if (!dados || !config) {
     return (
       <div className="mx-auto flex min-h-svh max-w-lg flex-col items-center justify-center gap-4 px-6 text-center">
         <LinkIcon className="size-8 text-crimson" aria-hidden="true" />
-        <h1 className="font-display text-2xl text-ink">Link invÃ¡lido</h1>
+        <h1 className="text-2xl font-bold text-ink">Link inválido</h1>
         <p className="text-sm text-muted">
-          Este link nÃ£o contÃ©m uma designaÃ§Ã£o vÃ¡lida. PeÃ§a para a pessoa gerar o link novamente
-          na tela da designaÃ§Ã£o pronta.
+          Este link não contém uma designação válida. Peça para a pessoa gerar o link novamente na
+          tela da designação pronta.
         </p>
         <Botao variante="primario" onClick={aoVoltar}>
           Voltar para o app
@@ -73,75 +135,141 @@ export default function TelaVer({
     )
   }
 
-  const ocorrenciasCard = ocorrencias as unknown as Ocorrencia[]
-  const configCard = config as unknown as ConfigEscala
+  async function baixarPdfDaPagina() {
+    try {
+      await baixarPdf(cardRef.current, chave)
+      aoAvisar('PDF baixado.')
+    } catch (e) {
+      aoAvisar(e instanceof Error ? e.message : 'Não foi possível gerar o PDF.')
+    }
+  }
+
+  async function baixarImagemDaPagina() {
+    try {
+      await baixarImagem(cardRef.current, chave)
+      aoAvisar('Imagem baixada.')
+    } catch (e) {
+      aoAvisar(e instanceof Error ? e.message : 'Não foi possível gerar a imagem.')
+    }
+  }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6 pb-24">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-16">
+      <header className="mb-5 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <span
-            className="flex size-9 items-center justify-center bg-teal text-white"
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal text-white shadow-sm"
             aria-hidden="true"
           >
             <MapPin className="size-5" />
           </span>
-          <div>
-            <p className="font-display text-base font-bold leading-tight text-ink">
-              DesignaÃ§Ã£o compartilhada
+          <div className="min-w-0">
+            <h1 className="text-base font-bold leading-snug tracking-tight text-ink">
+              {dados.t} - {dados.c}
+            </h1>
+            <p className="mt-0.5 text-xs text-muted">
+              {MESES[dados.m]} de {dados.a} · somente leitura
             </p>
-            <p className="text-xs text-muted">{dados.c}</p>
           </div>
         </div>
-        <Botao onClick={aoVoltar}>Voltar para o app</Botao>
+        <Botao variante="fantasma" className="shrink-0" onClick={aoVoltar}>
+          Voltar para o app
+        </Botao>
       </header>
 
-      <div className="scroll-hint overflow-x-auto pb-2">
+      {destaque ? (
+        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal to-teal-deep p-6 text-white shadow-xl">
+          <div
+            className="pointer-events-none absolute -bottom-10 -right-8 size-44 rounded-full bg-white/10 blur-2xl"
+            aria-hidden="true"
+          />
+          <div className="relative z-10 flex items-center justify-between gap-3">
+            <Kicker className="text-white/80">{rotuloDestaque}</Kicker>
+            <span className="flex shrink-0 items-center gap-2">
+              {rotuloDe(destaque.iso) ? (
+                <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">
+                  {rotuloDe(destaque.iso)}
+                </span>
+              ) : null}
+              <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold tracking-wide text-white">
+                {nomeDiaCurto(destaque.diaSemana)}, {ddMm(destaque.iso)}
+              </span>
+            </span>
+          </div>
+          <div className="relative z-10 mt-3">
+            <p className="text-[32px] font-extrabold leading-tight">
+              {destaque.nome || 'Sem designação'}
+            </p>
+          </div>
+          <div className="relative z-10 mt-4 grid grid-cols-2 gap-2">
+            <span className="flex min-w-0 items-center gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+              <MapPin className="size-4 shrink-0" aria-hidden="true" />
+              <span className="truncate text-sm">{destaque.local}</span>
+            </span>
+            <span className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+              <Clock className="size-4 shrink-0" aria-hidden="true" />
+              <span className="text-sm">{destaque.horario}</span>
+            </span>
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-2xl border border-dashed border-line bg-card px-6 py-9 text-center">
+          <p className="text-sm text-muted">Nenhuma programação neste link.</p>
+        </section>
+      )}
+
+      {restantes.length ? (
+        <section className="mt-5 space-y-2">
+          <h2 className="px-1 text-lg font-semibold text-ink">Próximos dias</h2>
+          <div className="flex flex-col gap-2">
+            {restantes.map((l) => (
+              <article key={l.key} className="rounded-xl bg-card p-4 shadow-sm">
+                <p className="text-sm font-bold text-ink">{l.nome || 'Sem designação'}</p>
+                <p className="mt-1 text-[13px] text-muted">
+                  {nomeDiaCurto(l.diaSemana)}, {ddMm(l.iso)}
+                  {rotuloDe(l.iso) ? (
+                    <span className="ml-1.5 rounded-full bg-line px-2 py-0.5 text-[11px] font-bold text-ink-soft">
+                      {rotuloDe(l.iso)}
+                    </span>
+                  ) : null}
+                  {' · '}
+                  {l.horario} - {l.local}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Botao variante="primario" onClick={baixarPdfDaPagina}>
+          <FileDown className="size-4" aria-hidden="true" />
+          Baixar PDF
+        </Botao>
+        <Botao onClick={baixarImagemDaPagina}>
+          <ImageDown className="size-4" aria-hidden="true" />
+          Baixar imagem
+        </Botao>
+      </div>
+
+      <p className="mt-4 text-[13px] text-muted">
+        Somente leitura: esta é a programação que foi compartilhada com você.
+      </p>
+
+      <div
+        className="pointer-events-none fixed left-[-10000px] top-0 w-[760px] overflow-hidden"
+        aria-hidden="true"
+      >
         <EscalaCard
           ref={cardRef}
-          config={configCard}
-          ocorrencias={ocorrenciasCard}
+          config={config}
+          ocorrencias={ocorrencias}
           dirigentes={[]}
           designacoes={{}}
           nomes={nomes}
           somenteLeitura
         />
       </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Botao
-          variante="primario"
-          onClick={async () => {
-            try {
-              await baixarPdf(cardRef.current, chave)
-              aoAvisar('PDF baixado.')
-            } catch (e) {
-              aoAvisar(e instanceof Error ? e.message : 'NÃ£o foi possÃ­vel gerar o PDF.')
-            }
-          }}
-        >
-          <FileDown className="size-4" />
-          Baixar PDF
-        </Botao>
-        <Botao
-          variante="secundario"
-          onClick={async () => {
-            try {
-              await baixarImagem(cardRef.current, chave)
-              aoAvisar('Imagem baixada.')
-            } catch (e) {
-              aoAvisar(e instanceof Error ? e.message : 'NÃ£o foi possÃ­vel gerar a imagem.')
-            }
-          }}
-        >
-          <ImageDown className="size-4" />
-          Baixar imagem
-        </Botao>
-      </div>
-
-      <p className="mt-4 text-[13px] text-muted">
-        Somente leitura: esta Ã© a programaÃ§Ã£o que foi compartilhada com vocÃª.
-      </p>
     </div>
   )
 }
