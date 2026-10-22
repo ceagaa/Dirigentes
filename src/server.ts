@@ -19,6 +19,8 @@ interface Env {
   DB: D1Database
   /** Opcional: protege a API. Configure com `wrangler secret put APP_PIN`. */
   APP_PIN?: string
+  /** Chave pública VAPID (base64url) do push. Configure com `wrangler secret put PUSH_VAPID_PUBLICA`. */
+  PUSH_VAPID_PUBLICA?: string
 }
 
 interface LinhaEstado {
@@ -116,6 +118,43 @@ app.post('/api/escala/gerar', async (c) => {
     return c.json({ estado: novo })
   } catch {
     return c.json({ erro: 'falha_geracao' }, 500)
+  }
+})
+
+/** Chave pública VAPID usada pelo navegador para inscrever-se no push. */
+app.get('/api/push/vapid-publica', (c) => {
+  if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
+  const chave = c.env.PUSH_VAPID_PUBLICA
+  if (!chave) return c.json({ erro: 'nao_configurado' }, 404)
+  return c.json({ chave })
+})
+
+/** Guarda (ou atualiza) a inscrição push de um aparelho. */
+app.post('/api/push/inscricao', async (c) => {
+  if (!pinValido(c.env, c.req.raw)) return c.json({ erro: 'pin_invalido' }, 401)
+  try {
+    const corpo = await c.req.json<{ endpoint?: unknown; p256dh?: unknown; auth?: unknown }>()
+    const endpoint = typeof corpo.endpoint === 'string' ? corpo.endpoint : ''
+    const p256dh = typeof corpo.p256dh === 'string' ? corpo.p256dh : ''
+    const auth = typeof corpo.auth === 'string' ? corpo.auth : ''
+    if (!endpoint.startsWith('https://') || !p256dh || !auth) {
+      return c.json({ erro: 'inscricao_invalida' }, 400)
+    }
+    const agora = new Date().toISOString()
+    await c.env.DB.prepare(
+      `INSERT INTO push_inscricoes (endpoint, chave_p256dh, chave_auth, ativo, criado_em, atualizado_em)
+       VALUES (?, ?, ?, 1, ?, ?)
+       ON CONFLICT(endpoint) DO UPDATE SET
+         chave_p256dh = excluded.chave_p256dh,
+         chave_auth = excluded.chave_auth,
+         ativo = 1,
+         atualizado_em = excluded.atualizado_em`,
+    )
+      .bind(endpoint, p256dh, auth, agora, agora)
+      .run()
+    return c.json({ ok: true })
+  } catch {
+    return c.json({ erro: 'falha_inscricao' }, 500)
   }
 })
 

@@ -11,3 +11,12 @@ createRoot(alvo).render(
     <App />
   </StrictMode>,
 )
+
+// PWA: registra o service worker apenas em produção (no Vite dev ele interromperia o HMR).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((erro) => {
+      console.warn('Falha ao registrar o service worker.', erro)
+    })
+  })
+}

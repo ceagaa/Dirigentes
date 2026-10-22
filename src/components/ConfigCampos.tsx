@@ -1,7 +1,18 @@
 import type { Campo, ConfigEscala } from '../lib/dominio'
-import { useState } from 'react'
-import { Building2, Check, ChevronRight, FileText, RefreshCw, Send, ShieldCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import {
+  Bell,
+  Building2,
+  Check,
+  ChevronRight,
+  FileText,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+} from 'lucide-react'
 import { MESES } from '../lib/constants'
+import type { EstadoNotificacoes, ResultadoAtivacao } from '../lib/push'
+import { ativarNotificacoes, estadoNotificacoes } from '../lib/push'
 import { Botao, Input, Kicker, Modal, Rotulo, Select, Toggle } from './ui'
 
 /** Horários oferecidos para o feriado: 05:00 às 21:30, de 30 em 30 minutos. */
@@ -124,6 +135,36 @@ export default function ConfigCampos({
   aoCopiarLink,
 }: ConfigCamposProps) {
   const [editandoCong, setEditandoCong] = useState(false)
+  const [push, setPush] = useState<EstadoNotificacoes | null>(null)
+  const [pushOcupado, setPushOcupado] = useState(false)
+  const [pushMensagem, setPushMensagem] = useState<string | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    estadoNotificacoes().then((estado) => {
+      if (vivo) setPush(estado)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [])
+
+  async function aoAtivarPush() {
+    setPushOcupado(true)
+    setPushMensagem(null)
+    const resultado = await ativarNotificacoes()
+    const textos: Record<ResultadoAtivacao, string> = {
+      ativo: 'Pronto! Este aparelho já recebe notificações da escala.',
+      aguardando_servidor:
+        'Permissão concedida. Falta configurar as chaves de push no servidor (PUSH_VAPID_PUBLICA).',
+      bloqueado: 'Notificações bloqueadas — libere-as nas configurações do navegador.',
+      incompativel: 'Este navegador não suporta notificações.',
+      erro: 'Não foi possível ativar agora. Tente de novo.',
+    }
+    setPushMensagem(textos[resultado])
+    setPush(await estadoNotificacoes())
+    setPushOcupado(false)
+  }
 
   const fixaLigada = config.designacao_fixa === true
   const feriadoLigado = config.ajustar_feriados === true
@@ -297,6 +338,46 @@ export default function ConfigCampos({
             descricao="Feed de calendário em tempo real"
             desabilitado
           />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <TituloSecao titulo="Notificações" descricao="Avisos no aparelho mesmo com o app fechado" />
+        <div className="rounded-xl bg-card p-4 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <span
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-tint text-teal"
+              aria-hidden="true"
+            >
+              <Bell className="size-6" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">Notificações push</p>
+              <p className="mt-0.5 text-[13px] text-muted">
+                {!push
+                  ? 'Verificando este aparelho…'
+                  : !push.suporta
+                    ? 'Este navegador não suporta notificações.'
+                    : push.inscrito
+                      ? 'Ativo neste aparelho.'
+                      : push.permissao === 'denied'
+                        ? 'Bloqueadas — libere nas configurações do navegador.'
+                        : 'Ative para receber avisos da escala no aparelho.'}
+              </p>
+              {pushMensagem ? (
+                <p className="mt-1.5 text-[12px] font-semibold text-teal">{pushMensagem}</p>
+              ) : null}
+            </div>
+          </div>
+          <Botao
+            variante="primario"
+            className="mt-3 w-full"
+            disabled={!push?.suporta || push?.inscrito === true || pushOcupado}
+            onClick={aoAtivarPush}
+          >
+            <Bell className="size-4" aria-hidden="true" />
+            {push?.inscrito ? 'Notificações ativadas' : 'Ativar notificações'}
+          </Botao>
         </div>
       </section>
 

@@ -3,7 +3,7 @@ import { CHAVE_LOCAL, estadoInicial, normalizarEstado } from './estadoInicial'
 
 const CHAVE_PIN = 'dirigentes:pin'
 
-function cabecalhosPin(): Record<string, string> {
+export function cabecalhosPin(): Record<string, string> {
   try {
     const pin = localStorage.getItem(CHAVE_PIN)
     return pin ? { 'x-app-pin': pin } : {}
